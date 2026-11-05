@@ -101,7 +101,7 @@ test("수량 선택은 1~5로 제한된다", () => {
 
 const params = { orderId: 7, paymentKey: "pk_1", tossOrderId: "dashpi_abc", amount: 258000 };
 
-function mockSuccessApi(opts: { status?: string; confirm?: () => Response } = {}) {
+function mockSuccessApi(opts: { status?: Order["status"]; confirm?: () => Response } = {}) {
   fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
     if (url.endsWith("/orders/7") && !init?.method) return json(200, order({ status: opts.status ?? "pending" }));
     if (url.endsWith("/orders/7/confirm")) return opts.confirm ? opts.confirm() : json(200, order({ status: "paid" }));
