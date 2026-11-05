@@ -2,7 +2,7 @@ import enum
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Index, Integer, String, Text, func
+from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, Index, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -103,6 +103,7 @@ class Analysis(Base):
     stage: Mapped[Stage | None] = mapped_column(_enum(Stage, "analysis_stage"))
     source_key: Mapped[str | None] = mapped_column(String(300))
     playback_key: Mapped[str | None] = mapped_column(String(300))
+    source_size: Mapped[int | None] = mapped_column(BigInteger)  # 클라이언트가 알린 업로드 크기
     duration_sec: Mapped[float | None]
     report: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     trace: Mapped[dict[str, Any] | None] = mapped_column(JSONB)

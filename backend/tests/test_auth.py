@@ -92,8 +92,8 @@ def test_concurrent_first_requests_create_one_user(fake_clerk):
             s.commit()
 
 
-def _analysis(db, user, source, playback):
-    a = Analysis(user_id=user.id, source_key=source, playback_key=playback)
+def _analysis(db, user):
+    a = Analysis(user_id=user.id)
     db.add(a)
     db.flush()
     return a
@@ -103,16 +103,17 @@ def test_delete_me_removes_analyses_files_and_clerk_user(client, db, storage, fa
     other = User(clerk_user_id="user_other")
     db.add(other)
     db.flush()
-    _analysis(db, user, "u/1/source.mp4", "u/1/play.mp4")
-    _analysis(db, user, "u/2/source.mp4", None)
-    _analysis(db, other, "u/3/source.mp4", None)
-    for k in ("u/1/source.mp4", "u/1/play.mp4", "u/2/source.mp4", "u/3/source.mp4"):
+    a1, a2, a3 = (_analysis(db, u) for u in (user, user, other))
+    keys = [f"analyses/{a1.id}/source.mp4", f"analyses/{a1.id}/playback.mp4", f"analyses/{a1.id}/overlay.json",
+            f"analyses/{a2.id}/source.mov"]
+    other_key = f"analyses/{a3.id}/source.mp4"
+    for k in (*keys, other_key):
         storage.s3.put_object(Bucket=storage.bucket, Key=k, Body=b"x")
 
     r = client.delete("/api/v1/me", headers=auth(user.clerk_user_id))
     assert r.status_code == 204
-    assert [storage.head(k) for k in ("u/1/source.mp4", "u/1/play.mp4", "u/2/source.mp4")] == [None] * 3
-    assert storage.head("u/3/source.mp4") == 1  # 다른 사용자 파일은 그대로
+    assert [storage.head(k) for k in keys] == [None] * 4
+    assert storage.head(other_key) == 1  # 다른 사용자 파일은 그대로
     assert db.scalar(select(func.count()).select_from(User).where(User.id == user.id)) == 0
     assert db.scalar(select(func.count()).select_from(Analysis).where(Analysis.user_id == user.id)) == 0
     assert db.scalar(select(func.count()).select_from(Analysis).where(Analysis.user_id == other.id)) == 1
