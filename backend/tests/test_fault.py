@@ -95,3 +95,30 @@ def test_load_rejects_chart_without_scene(tmp_path):
     scenes.write_text("{}")
     with pytest.raises(ValueError):
         FaultTable.load(charts, scenes)
+
+
+def chart43_2():
+    return FaultTable.load().get("차43-2")  # a1/a2 = A 현저/중대(10/20), b6/b7 = B 현저/중대(10/20)
+
+
+def test_exclusive_both_applied_counts_larger_only():
+    r = calculate(chart43_2(), "A", ["a1", "a2"], [])
+    assert [(s.id, s.effect) for s in r.steps] == [("a2", 20)]
+    assert (r.my_min, r.my_max) == (45, 55)  # 30+20=50, 최소 폭 10
+    r = calculate(chart43_2(), "A", ["b6", "b7"], [])
+    assert [(s.id, s.effect) for s in r.steps] == [("b7", -20)]
+
+
+def test_exclusive_both_unknown_widens_by_larger_only():
+    r = calculate(chart43_2(), "A", [], ["a1", "a2"])
+    assert (r.my_min, r.my_max) == (30, 50)  # +30이 아니라 +20
+    r = calculate(chart43_2(), "A", [], ["b6", "b7"])
+    assert (r.my_min, r.my_max) == (10, 30)
+
+
+def test_exclusive_applied_plus_unknown_widens_by_difference():
+    r = calculate(chart43_2(), "A", ["a1"], ["a2"])
+    assert [s.id for s in r.steps] == [("a1")]
+    assert (r.my_min, r.my_max) == (40, 50)  # 점 40, 불확실은 차이 10만큼
+    r = calculate(chart43_2(), "A", ["a2"], ["a1"])
+    assert (r.my_min, r.my_max) == (45, 55)  # 이미 적용된 쪽이 더 크면 넓히지 않는다

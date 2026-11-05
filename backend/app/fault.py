@@ -74,6 +74,7 @@ class FaultTable:
 
 def calculate(chart: Chart, me: Party, applied_ids: list[str], unknown_ids: list[str]) -> FaultResult:
     mods = {m.id: m for m in chart.modifiers}
+    base = chart.base_a if me == "A" else 100 - chart.base_a
     applied = list(dict.fromkeys(applied_ids))
     unknown = [i for i in dict.fromkeys(unknown_ids) if i not in applied]
     if bad := [i for i in applied + unknown if i not in mods]:
@@ -83,11 +84,27 @@ def calculate(chart: Chart, me: Party, applied_ids: list[str], unknown_ids: list
         m = mods[i]
         return m.delta if m.party == me else -m.delta
 
-    base = chart.base_a if me == "A" else 100 - chart.base_a
+    def group(i: str) -> str:  # 현저한/중대한 과실은 당사자별로 둘 중 하나만 적용된다
+        m = mods[i]
+        return m.party if any(w in m.label for w in ("현저한 과실", "중대한 과실")) else i
+
+    best: dict[str, str] = {}  # 그룹별로 효과가 큰 적용 수정요소만 남긴다
+    for i in applied:
+        if group(i) not in best or abs(effect(i)) > abs(effect(best[group(i)])):
+            best[group(i)] = i
+    applied = [i for i in applied if best[group(i)] == i]
+    done = {g: abs(effect(i)) for g, i in best.items()}
+
+    widen: dict[str, int] = {}  # 그룹별 불확실 수정요소 중 가장 큰 효과 (이미 적용된 만큼은 뺀다)
+    for i in unknown:
+        extra = abs(effect(i)) - done.get(group(i), 0)
+        if extra > abs(widen.get(group(i), 0)):
+            widen[group(i)] = extra if effect(i) > 0 else -extra
+
     steps = [Step(id=i, label=mods[i].label, effect=effect(i)) for i in applied]
     point = base + sum(s.effect for s in steps)
-    lo = point + sum(e for e in map(effect, unknown) if e < 0)
-    hi = point + sum(e for e in map(effect, unknown) if e > 0)
+    lo = point + sum(e for e in widen.values() if e < 0)
+    hi = point + sum(e for e in widen.values() if e > 0)
     lo, hi = max(lo, 0), min(hi, 100)
     short = MIN_WIDTH - (hi - lo)
     if short > 0:
