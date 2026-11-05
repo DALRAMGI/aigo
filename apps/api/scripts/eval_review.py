@@ -60,9 +60,9 @@ def page(e: dict, overview: Path, zoom: Path | None) -> str:
     rows = "\n".join(f"| {k} | {e.get(k)} |" for k in
                      ("is_accident", "involvement", "collision_t", "chart_id", "me", "my_fault", "unsure", "split"))
     lines = [f"# {e['file']}", "", "초안 라벨이다. 맞으면 golden.json의 `checked_by`에 이름을 적고, 틀리면 값을 고친다.", "",
-             "| 항목 | 초안 |", "|---|---|", rows, "", f"메모: {e.get('note') or '없음'}", "", f"전체 시트: `{overview}`"]
+             "| 항목 | 초안 |", "|---|---|", rows, "", f"메모: {e.get('note') or '없음'}", "", f"전체 시트: `{overview.name}`"]
     if zoom:
-        lines.append(f"충돌 앞뒤 시트: `{zoom}`")
+        lines.append(f"충돌 앞뒤 시트: `{zoom.name}`")
     if e.get("cut_from"):
         lines.append(f"원본 구간: {e['cut_from']}")
     return "\n".join(lines) + "\n"
@@ -74,7 +74,7 @@ def main() -> None:
     ap.add_argument("--sheets", type=Path, required=True)
     a = ap.parse_args()
     REVIEW.mkdir(parents=True, exist_ok=True)
-    index = ["# 정답 확인 목록", "", "| 파일 | 사고 | 충돌 시각 | 도표 | 내 과실 | 불확실 | 확인자 |", "|---|---|---|---|---|---|---|"]
+    index = ["# 정답 확인 목록", "", "시트 이미지는 영상 장면이라 저장소에 없다. 위 실행 명령의 --sheets 폴더에 만들어 파일 이름으로 찾는다.", "", "| 파일 | 사고 | 충돌 시각 | 도표 | 내 과실 | 불확실 | 확인자 |", "|---|---|---|---|---|---|---|"]
     for e in json.loads(GOLDEN.read_text(encoding="utf-8")):
         stem = Path(e["file"]).stem
         video = next((d / e["file"] for d in a.videos if (d / e["file"]).exists()), None)

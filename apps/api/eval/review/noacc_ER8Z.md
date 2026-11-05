@@ -15,5 +15,5 @@
 
 메모: 없음
 
-전체 시트: `/private/tmp/claude-501/-Users-justin-workspace-university-aigo/5e834168-0af0-49f4-bdf8-612a2a123f85/scratchpad/t11/noacc_ER8Z_overview.jpg`
+전체 시트: `noacc_ER8Z_overview.jpg`
 원본 구간: ER8Z1776500669_770_com.mp4 0~8초

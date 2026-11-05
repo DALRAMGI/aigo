@@ -15,5 +15,5 @@
 
 메모: 빗길, 와이퍼. T8에서 와이퍼가 오탐을 냈다.
 
-전체 시트: `/private/tmp/claude-501/-Users-justin-workspace-university-aigo/5e834168-0af0-49f4-bdf8-612a2a123f85/scratchpad/t11/noacc_Cgsf_overview.jpg`
+전체 시트: `noacc_Cgsf_overview.jpg`
 원본 구간: Cgsf1776165435_ef152a_917_com.mp4 0~9.5초

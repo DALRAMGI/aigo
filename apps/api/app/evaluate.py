@@ -1,7 +1,7 @@
 """평가 세트로 분석 품질을 재고 eval/results/<시각>.md와 .json을 남긴다.
 
 실행: cd apps/api && uv run python -m app.evaluate --videos <폴더> [<폴더> ...] [--model <모델>] [--draft]
-다시 채점(비용 없음): uv run python -m app.evaluate --rescore eval/results/<시각>.json [--draft]
+다시 채점(비용 없음, 새 파일에 쓴다): uv run python -m app.evaluate --rescore eval/results/<시각>.json [<시각2>.json ...] [--draft]
 
 평가는 DB를 쓰지 않지만 설정이 요구하므로 .env에 없으면 DATABASE_URL=postgresql:///dashpi_test를 앞에 붙인다.
 합격 판정은 `checked_by`가 있는 항목으로만 낸다. --draft는 확인 전 라벨로 채점하고 판정을 내지 않는다.
@@ -69,7 +69,8 @@ def score(e: dict, r: dict) -> dict:
     if e["my_fault"] is not None:
         s["range_ok"] = ran and r.get("my_min") is not None and r["my_min"] <= e["my_fault"] <= r["my_max"]
     if e["involvement"] == "party" and not e["unsure"]:
-        s["chart_ok"] = chart == e["chart_id"]
+        # 사고를 못 찾았으면 "도표 없음"이 정답이어도 맞힌 것이 아니다. 아무것도 안 내는 파이프라인이 점수를 받으면 안 된다.
+        s["chart_ok"] = ran and r["involvement"] == "party" and chart == e["chart_id"]
         if e["chart_id"] is not None:
             s["adopted"] = chart is not None
         if chart is not None:
@@ -94,7 +95,9 @@ def passed(m: dict) -> bool:
     return all(m[k][1] and m[k][0] / m[k][1] >= line for k, line in PASS_LINE.items())
 
 
-def verdict(m: dict, confirmed: int) -> str:
+def verdict(m: dict, confirmed: int, unscored: int = 0) -> str:
+    if unscored:
+        return f"판정 불가: 확인된 항목 중 이 실행에 없는 항목 {unscored}개"
     if confirmed < MIN_CONFIRMED:
         return f"판정 불가: 확인된 항목 {confirmed}개, 최소 {MIN_CONFIRMED}개"
     return ("합격" if passed(m) else "미달") + f" (처리 시간 {TIME_LIMIT_S}초 기준은 Railway에서 따로 잰다)"
@@ -105,9 +108,23 @@ def evidence_sample(rows: list[dict], n: int) -> list[dict]:
     return sorted(random.Random(0).sample(items, min(n, len(items))), key=lambda i: (i["file"], i["t"]))
 
 
-def evidence_rate(checks: list[dict], draft: bool) -> tuple[int, int] | None:
-    used = [c for c in checks if draft or c.get("checked_by")]
-    return (sum(c["ok"] for c in used), len(used)) if used else None
+def evidence_rate(checks: list[dict], rows: list[dict], draft: bool) -> tuple[int, int] | None:
+    """이 실행의 근거를 사람이 본 결과만 센다. 다른 실행의 검사와 같은 항목의 반복은 표본이 아니다."""
+    shown = {(r["file"], ev["t"]) for r in rows for ev in r.get("evidence", [])}
+    used = {(c["file"], c["t"]): c["ok"] for c in checks if (draft or c.get("checked_by")) and (c["file"], c["t"]) in shown}
+    return (sum(used.values()), len(used)) if len(used) >= EVIDENCE_SAMPLE else None
+
+
+def load_runs(paths: list[Path]) -> tuple[dict, list[dict]]:
+    """미정 클립을 따로 돌린 결과처럼 같은 설정의 실행만 합친다. 재실행으로 더 나은 결과를 골라 넣지 못하게 중복도 막는다."""
+    runs = [json.loads(p.read_text(encoding="utf-8")) for p in paths]
+    keys = ("model", "effort", "prompt_version")
+    if len({tuple(r["meta"].get(k) for k in keys) for r in runs}) > 1:
+        raise SystemExit("모델, 추론, 프롬프트가 다른 실행은 합칠 수 없습니다.")
+    rows = [row for r in runs for row in r["rows"]]
+    if len({r["file"] for r in rows}) < len(rows):
+        raise SystemExit("같은 영상이 두 실행에 들어 있어 합칠 수 없습니다.")
+    return runs[0]["meta"], rows
 
 
 def run_all(entries: list[dict], dirs: list[Path], run_one: Callable[[dict, Path], dict], budget: float,
@@ -175,18 +192,22 @@ def _table(pairs: list[tuple[dict, dict]], evidence: tuple[int, int] | None = No
 
 def render(entries: list[dict], rows: list[dict], checks: list[dict], meta: dict, draft: bool) -> str:
     by_file = {r["file"]: r for r in rows}
-    used = [e for e in select(entries, draft) if e["file"] in by_file]
+    selected = select(entries, draft)
+    used = [e for e in selected if e["file"] in by_file]
+    unscored = len(selected) - len(used)
     pairs = [(e, score(e, by_file[e["file"]])) for e in used]
-    evidence = evidence_rate(checks, draft)
+    evidence = evidence_rate(checks, rows, draft)
     ran = [r for r in rows if r["status"] == "ok"]
     seconds = sorted(r["seconds"] for r in ran)
     lines = [f"# 품질 평가 {meta.get('at', '')}", ""]
     if draft:
         lines += ["**초안 정답 기준.** 사람이 확인하지 않은 라벨로 채점했다. 품질 판정이 아니다.", ""]
+        if unscored:
+            lines += [f"이 실행에 없는 항목 {unscored}개는 채점하지 않았다.", ""]
     else:
         m = metrics(pairs)
         m["evidence"] = evidence
-        lines += [f"판정: {verdict(m, len(used))}", ""]
+        lines += [f"판정: {verdict(m, len(selected), unscored)}", ""]
     lines += [f"모델 {meta.get('model')}, 추론 {meta.get('effort')}, 프롬프트 {meta.get('prompt_version')}, "
               f"채점 {len(used)}개, 실행 {len(ran)}/{len(rows)}개, 비용 ${sum(r['cost'] for r in rows):.2f}", ""]
     if seconds:
@@ -215,15 +236,18 @@ def main() -> None:
     ap.add_argument("--only", nargs="+", default=[], help="파일 이름 앞부분으로 고른다")
     ap.add_argument("--budget", type=float, default=12.0, help="이 금액(달러)을 넘으면 다음 영상을 돌리지 않는다")
     ap.add_argument("--draft", action="store_true")
-    ap.add_argument("--rescore", type=Path)
+    ap.add_argument("--rescore", nargs="+", type=Path)
     ap.add_argument("--name", default="", help="결과 파일 이름 뒤에 붙인다")
     a = ap.parse_args()
     entries = json.loads(GOLDEN.read_text(encoding="utf-8"))
     checks = json.loads(EVIDENCE_CHECKS.read_text(encoding="utf-8")) if EVIDENCE_CHECKS.exists() else []
     if a.rescore:
-        saved = json.loads(a.rescore.read_text(encoding="utf-8"))
-        a.rescore.with_suffix(".md").write_text(render(entries, saved["rows"], checks, saved["meta"], a.draft), encoding="utf-8")
-        print(a.rescore.with_suffix(".md"))
+        meta, rows = load_runs(a.rescore)
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        out = a.rescore[0].with_name(f"{a.rescore[0].stem}-rescore-{stamp}.md")
+        with out.open("x", encoding="utf-8") as f:  # 이전 채점 기록을 덮어쓰지 않는다.
+            f.write(render(entries, rows, checks, meta, a.draft))
+        print(out)
         return
     if not a.videos:
         ap.error("--videos 또는 --rescore가 필요합니다")

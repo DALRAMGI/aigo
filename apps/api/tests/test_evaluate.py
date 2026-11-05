@@ -150,10 +150,41 @@ def test_evidence_sample_is_stable_and_checks_are_scored():
     rows = [row(evidence=[{"t": float(i), "text": "x"} for i in range(30)])]
     assert ev.evidence_sample(rows, 5) == ev.evidence_sample(rows, 5)
     assert len(ev.evidence_sample(rows, 5)) == 5
-    checks = [{"file": "a.mp4", "t": 1, "ok": True, "checked_by": ""}, {"file": "a.mp4", "t": 2, "ok": False, "checked_by": "팀"}]
-    assert ev.evidence_rate(checks, draft=True) == (1, 2)
-    assert ev.evidence_rate(checks, draft=False) == (0, 1)
-    assert ev.evidence_rate([], draft=True) is None
+
+
+def evidence_run(n=ev.EVIDENCE_SAMPLE):
+    rows = [row(evidence=[{"t": float(i), "text": "x"} for i in range(n)])]
+    return rows, [{"file": "a.mp4", "t": float(i), "ok": i != 0, "checked_by": "팀"} for i in range(n)]
+
+
+def test_evidence_rate_scores_a_full_sample():
+    rows, checks = evidence_run()
+    assert ev.evidence_rate(checks, rows, draft=False) == (ev.EVIDENCE_SAMPLE - 1, ev.EVIDENCE_SAMPLE)
+
+
+def test_evidence_rate_has_a_floor():
+    rows, checks = evidence_run(ev.EVIDENCE_SAMPLE - 1)
+    assert ev.evidence_rate(checks, rows, draft=False) is None
+    assert ev.evidence_rate([], rows, draft=True) is None
+
+
+def test_evidence_checks_must_come_from_the_judged_run():
+    rows, checks = evidence_run()
+    other_run = [{**c, "t": c["t"] + 0.5} for c in checks]
+    assert ev.evidence_rate(other_run, rows, draft=False) is None
+    assert ev.evidence_rate([{**c, "file": "b.mp4"} for c in checks], rows, draft=False) is None
+
+
+def test_repeated_evidence_checks_do_not_reach_the_floor():
+    rows, checks = evidence_run()
+    assert ev.evidence_rate([checks[0]] * ev.EVIDENCE_SAMPLE, rows, draft=False) is None
+
+
+def test_unchecked_evidence_only_counts_in_draft():
+    rows, checks = evidence_run()
+    blank = [{**c, "checked_by": ""} for c in checks]
+    assert ev.evidence_rate(blank, rows, draft=False) is None
+    assert ev.evidence_rate(blank, rows, draft=True) == (ev.EVIDENCE_SAMPLE - 1, ev.EVIDENCE_SAMPLE)
 
 
 def test_golden_file_is_consistent():
@@ -189,3 +220,82 @@ def test_fetch_rejects_chart_with_several_cases():
 def test_eval_videos_are_git_ignored():
     # 공개 저장소다. 루트 .gitignore의 규칙은 apps/api 아래에 적용되지 않아서 여기서 막아 둔다.
     assert subprocess.run(["git", "check-ignore", "-q", "eval/videos/x.mp4"], cwd=ROOT).returncode == 0
+
+
+@pytest.mark.parametrize("status", ["missing", "failed", "not_run"])
+def test_clip_that_did_not_run_earns_no_chart_credit(status):
+    e = entry(chart_id=None, my_fault=None)  # "도표 없음"이 정답인 항목
+    assert ev.score(e, {"file": "a.mp4", "status": status, "cost": 0.0})["chart_ok"] is False
+
+
+def test_undetected_accident_earns_no_credit_for_expected_no_chart():
+    e = entry(chart_id=None, my_fault=None)
+    nothing = row(involvement="none", collision_t=None, chart_id=None, my_min=None, my_max=None)
+    assert ev.score(e, nothing)["chart_ok"] is False
+    assert ev.score(e, row(chart_id=None, my_min=None, my_max=None))["chart_ok"] is True
+
+
+def judged(n):
+    entries = [entry(file=f"{i}.mp4") for i in range(n)]
+    entries += [entry(file=f"n{i}.mp4", is_accident=False, involvement="none", collision_t=None, chart_id=None, my_fault=None)
+                for i in range(3)]
+    rows = [row(file=e["file"]) if e["is_accident"] else row(file=e["file"], involvement="none", collision_t=None, chart_id=None,
+                                                             my_min=None, my_max=None) for e in entries]
+    rows[0]["evidence"] = [{"t": float(i), "text": "x"} for i in range(ev.EVIDENCE_SAMPLE)]
+    checks = [{"file": rows[0]["file"], "t": float(i), "ok": True, "checked_by": "팀"} for i in range(ev.EVIDENCE_SAMPLE)]
+    return entries, rows, checks
+
+
+def test_full_run_can_reach_a_verdict():
+    entries, rows, checks = judged(18)
+    assert "판정: 합격" in ev.render(entries, rows, checks, {"model": "gpt-5.5"}, draft=False)
+
+
+def test_verdict_refuses_a_subset_of_confirmed_entries():
+    entries, rows, checks = judged(30)
+    text = ev.render(entries, rows[:18] + rows[-3:], checks, {"model": "gpt-5.5"}, draft=False)
+    assert "판정 불가" in text and "12개" in text
+    assert "판정: 합격" not in text
+
+
+def saved_run(path, rows, **meta):
+    path.write_text(json.dumps({"meta": {"model": "gpt-5.5", "effort": "low", "prompt_version": "p", **meta}, "rows": rows}), encoding="utf-8")
+    path.with_suffix(".md").write_text("원본", encoding="utf-8")
+
+
+def test_rescore_writes_a_new_file(tmp_path, monkeypatch):
+    src = tmp_path / "run.json"
+    saved_run(src, [])
+    monkeypatch.setattr("sys.argv", ["evaluate", "--rescore", str(src), "--draft"])
+    ev.main()
+    assert src.with_suffix(".md").read_text(encoding="utf-8") == "원본"
+    assert len(list(tmp_path.glob("run-rescore-*.md"))) == 1
+
+
+def test_rescore_merges_runs_with_the_same_settings(tmp_path, monkeypatch):
+    a, b = tmp_path / "a.json", tmp_path / "b.json"
+    saved_run(a, [row(file="x.mp4", involvement="party")])
+    saved_run(b, [row(file="y.mp4")])
+    assert [r["file"] for r in ev.load_runs([a, b])[1]] == ["x.mp4", "y.mp4"]
+
+
+def test_rescore_refuses_runs_with_different_settings(tmp_path):
+    a, b = tmp_path / "a.json", tmp_path / "b.json"
+    saved_run(a, [])
+    saved_run(b, [], effort="medium")
+    with pytest.raises(SystemExit):
+        ev.load_runs([a, b])
+
+
+def test_rescore_refuses_the_same_clip_from_two_runs(tmp_path):
+    a, b = tmp_path / "a.json", tmp_path / "b.json"
+    saved_run(a, [row()])
+    saved_run(b, [row()])
+    with pytest.raises(SystemExit):
+        ev.load_runs([a, b])
+
+
+def test_committed_eval_files_hold_no_local_paths():
+    for path in [*(ROOT / "eval" / "review").glob("*.md"), *(ROOT / "eval" / "results").iterdir()]:
+        text = path.read_text(encoding="utf-8")
+        assert "/Users/" not in text and "/private/" not in text, path.name
