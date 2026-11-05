@@ -8,4 +8,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 ENV PATH="/app/.venv/bin:$PATH"
 COPY app ./app
-CMD ["sh", "-c", "uvicorn app.main:create_app --factory --host 0.0.0.0 --port ${PORT:-8000}"]
+COPY alembic ./alembic
+COPY alembic.ini ./
+COPY data ./data
+CMD ["sh", "-c", "alembic upgrade head && python -m app.seed && uvicorn app.main:create_app --factory --host 0.0.0.0 --port ${PORT:-8000}"]
