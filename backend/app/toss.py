@@ -7,10 +7,15 @@ from app.config import settings
 CONFIRM_URL = "https://api.tosspayments.com/v1/payments/confirm"
 
 
-# 토스 문서에서 확인된 확정 거절 코드만 둔다(REJECT_CARD_COMPANY: 카드 정보 오류, PAY_PROCESS_*: 결제 중단).
-# 그 밖의 코드(409, 429, 5xx, 알 수 없는 코드 포함)는 결제 상태를 모르므로 재시도 가능으로 둔다.
-# ponytail: 문서의 승인 API 에러 코드 표를 확인하면 한도 초과류 코드를 여기에 추가한다.
-REJECTION_CODES = frozenset({"REJECT_CARD_COMPANY", "PAY_PROCESS_CANCELED", "PAY_PROCESS_ABORTED"})
+# 공식 에러 코드 표(docs.tosspayments.com/reference/error-codes)에서 확인한 확정 거절 코드.
+# PAY_PROCESS_*는 사용자 중단이다. 그 밖의 코드(409, 429, 5xx, 알 수 없는 코드 포함)는
+# 결제 상태를 모르므로 재시도 가능으로 둔다.
+REJECTION_CODES = frozenset({
+    "REJECT_CARD_COMPANY", "REJECT_CARD_PAYMENT", "REJECT_ACCOUNT_PAYMENT", "INVALID_REJECT_CARD",
+    "EXCEED_MAX_ONE_DAY_AMOUNT", "EXCEED_MAX_DAILY_PAYMENT_COUNT", "EXCEED_MAX_PAYMENT_AMOUNT",
+    "EXCEED_MAX_MONTHLY_PAYMENT_AMOUNT", "EXCEED_MAX_ONE_DAY_WITHDRAW_AMOUNT",
+    "EXCEED_MAX_ONE_TIME_WITHDRAW_AMOUNT", "PAY_PROCESS_CANCELED", "PAY_PROCESS_ABORTED",
+})
 
 
 class TossError(Exception):

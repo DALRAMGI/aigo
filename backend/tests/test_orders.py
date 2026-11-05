@@ -229,7 +229,7 @@ def test_unknown_or_transient_code_stays_pending(client, order, fake_toss, db, c
     assert r.status_code == 502 and db.get(Order, order["id"]).status == OrderStatus.pending
 
 
-@pytest.mark.parametrize("code", ["REJECT_CARD_COMPANY", "PAY_PROCESS_CANCELED", "PAY_PROCESS_ABORTED"])
+@pytest.mark.parametrize("code", sorted(__import__("app.toss", fromlist=["x"]).REJECTION_CODES))
 def test_definitive_rejection_code_marks_failed(client, order, fake_toss, db, code):
     import httpx
 
