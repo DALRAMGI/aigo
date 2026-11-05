@@ -1,0 +1,52 @@
+/* 토큰. 색은 light-dark()로 한 번만 적고, 테마는 color-scheme이 고른다.
+   기본은 OS 설정이다. data-theme는 /_design에서 두 테마를 나란히 보려고 쓴다.
+   lightningcss가 light-dark()를 변수로 풀어내므로 [data-theme]에도 같은 값을 다시 계산하게 둔다. */
+
+:root,
+[data-theme] {
+  /* 바탕 · 글자 · 선 */
+  --bg: light-dark(#f2f1ee, #121316);
+  --raised: light-dark(#faf9f6, #191a1e);
+  --sunken: light-dark(#e8e7e3, #0b0b0d);
+  --ink: light-dark(#101014, #f2f1ee);
+  --ink-strong: light-dark(#08080a, #fbfaf7);
+  --muted: light-dark(rgb(16 16 20 / 0.66), rgb(242 241 238 / 0.64));
+  --faint: light-dark(rgb(16 16 20 / 0.42), rgb(242 241 238 / 0.4)); /* 글자에 쓰지 않는다 */
+  --line: light-dark(rgb(16 16 20 / 0.16), rgb(242 241 238 / 0.14));
+  --line-strong: light-dark(rgb(16 16 20 / 0.52), rgb(242 241 238 / 0.46));
+  --invert-bg: light-dark(#101014, #f2f1ee);
+  --invert-fg: light-dark(#f2f1ee, #121316);
+
+  /* 강조: 파랑. accent는 면과 선, accent-ink는 글자와 어두운 쪽 대비용 */
+  --accent: #2d81ff;
+  --accent-ink: light-dark(#1659c4, #74aaff);
+
+  /* 상태. 빨강은 심각도와 오류에만 쓴다 */
+  --ok: light-dark(#17795a, #6fd3ae);
+  --danger: light-dark(#b3261e, #ff7a72);
+}
+
+:root {
+  color-scheme: light dark;
+
+  /* 모서리: 앱은 3px, 랜딩은 data-surface="landing" 안에서 0 */
+  --radius: 3px;
+
+  /* 움직임 */
+  --ease-out: cubic-bezier(0.215, 0.61, 0.355, 1);
+  --dur-hover: 120ms;
+  --dur-enter: 700ms;
+  --dur-marquee: 36s;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+[data-surface="landing"] {
+  --radius: 0;
+}
