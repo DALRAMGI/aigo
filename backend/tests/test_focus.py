@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 import pytest
 
-from app.pipeline.focus import select_keyframes, uniform_keyframes
+from app.pipeline.focus import dense_keyframes, select_keyframes, uniform_keyframes
 from app.pipeline.locate import Candidate
 from app.pipeline.scan import TrackPoint
 from tests.fixtures import make_clips as mk
@@ -134,3 +134,16 @@ def test_uniform_keyframes_on_short_clip(tmp_path):
     got = uniform_keyframes(src, {}, tmp_path / "o")
     assert 1 <= len(got) <= 12
     assert all(k.boxes_text == "" for k in got)
+
+
+def test_boxes_text_coordinates_are_clamped(clip, tmp_path):
+    tracks = {1: _track((-32.0, -18.0, 352.0, 90.0))}
+    got = select_keyframes(clip, [_cand(5)], tracks, tmp_path)
+    assert all("box=(0.000, 0.000, 1.000, 0.500)" in k.boxes_text for k in got)
+
+
+def test_dense_keyframes_keep_every_step_around_the_time(clip, tmp_path):
+    got = dense_keyframes(clip, 5.0, {}, tmp_path)
+    assert [round(k.t, 1) for k in got] == [round(3.5 + i * 0.2, 1) for i in range(15)]
+    assert [k.t for k in dense_keyframes(clip, 0.2, {}, tmp_path / "h")][0] == 0
+    assert dense_keyframes(clip, 9.8, {}, tmp_path / "t")[-1].t < 10

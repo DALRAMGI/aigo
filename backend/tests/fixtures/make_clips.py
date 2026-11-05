@@ -37,3 +37,15 @@ def counter(out: Path, *, frames=60, rate=30) -> Path:
         "-vf", "geq=lum='4*N+8'", "-frames:v", str(frames),
         "-c:v", "libx264", "-pix_fmt", "yuv420p", "-qp", "0", str(out))
     return out
+
+
+def flash(out: Path, *, seconds=6, at=3.0) -> Path:
+    """회색 화면에 흰 면이 0.2초 번쩍인다. 소리 없이 모션 후보 하나만 나오는 영상."""
+    _ff("-f", "lavfi", "-i", f"color=c=gray:size=320x180:rate=30:duration={seconds}",
+        "-vf", f"drawbox=c=white:t=fill:enable='between(t,{at},{at + 0.2})'", "-pix_fmt", "yuv420p", str(out))
+    return out
+
+
+def blank(out: Path, *, seconds=6) -> Path:
+    _ff("-f", "lavfi", "-i", f"color=c=gray:size=320x180:rate=30:duration={seconds}", "-pix_fmt", "yuv420p", str(out))
+    return out

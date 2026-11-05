@@ -18,6 +18,8 @@ BIN_S = 0.5
 TRACK_EDGE_S = 0.1  # 트랙 양끝에서 스캔 간격의 절반까지는 상자를 그대로 쓴다.
 TRACK_GAP_S = 0.5  # 트랙이 이보다 오래 끊긴 구간은 보간하지 않는다.
 BOX_COLOR = (0, 255, 255)
+DENSE_S = 1.5
+DENSE_FPS = 5
 
 
 @dataclass
@@ -109,9 +111,8 @@ def _keyframes(frames: list[Frame], tracks: dict[int, list[TrackPoint]], out_dir
         for tid, box in sorted(boxes.items(), key=lambda kv: kv[1][0]):
             n = numbers.setdefault(tid, len(numbers) + 1)
             _draw(img, box, n)
-            x1, y1, x2, y2 = box
-            lines.append(f"#{n} {tracks[tid][0].cls} track={tid} "
-                         f"box=({x1 / w:.3f}, {y1 / h:.3f}, {x2 / w:.3f}, {y2 / h:.3f})")
+            x1, y1, x2, y2 = (min(max(v, 0.0), 1.0) for v in (box[0] / w, box[1] / h, box[2] / w, box[3] / h))
+            lines.append(f"#{n} {tracks[tid][0].cls} track={tid} box=({x1:.3f}, {y1:.3f}, {x2:.3f}, {y2:.3f})")
         cv2.imwrite(str(annotated_path), img, [cv2.IMWRITE_JPEG_QUALITY, 92])
         result.append(Keyframe(f.t, raw_path, annotated_path, "\n".join(lines)))
     return result
@@ -135,6 +136,14 @@ def select_keyframes(video: Path, candidates: list[Candidate], tracks: dict[int,
             fresh = [f for f in pool if f.t not in chosen]
             chosen.update((f.t, f) for f in _spaced(fresh, k, c.t))
         return _keyframes(list(chosen.values()), tracks, out_dir)
+
+
+def dense_keyframes(video: Path, t: float, tracks: dict[int, list[TrackPoint]], out_dir: Path) -> list[Keyframe]:
+    """t 앞뒤를 빠짐없이 뽑는다. 선명도로 고르면 충격으로 흔들린 프레임이 빠지는데 그 프레임이 증거다."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    with TemporaryDirectory(dir=out_dir) as tmp:
+        frames = extract_frames(video, DENSE_FPS, Path(tmp), max(0.0, t - DENSE_S), min(probe(video).duration, t + DENSE_S))
+        return _keyframes(frames, tracks, out_dir)
 
 
 def uniform_keyframes(video: Path, tracks: dict[int, list[TrackPoint]], out_dir: Path,

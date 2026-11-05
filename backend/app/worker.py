@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 
 from app import quota
 from app.db import SessionLocal
+from app.fault import FaultTable
+from app.llm import LLM
 from app.models import Analysis, AnalysisStatus, Stage
 from app.pipeline.run import PIPELINE_VERSION, Context, PipelineError, PipelineResult, run_pipeline
 from app.storage import Storage
@@ -142,7 +144,7 @@ def process(db: Session, a: Analysis, storage: Storage, pipeline: Callable = run
         with tempfile.TemporaryDirectory() as tmp:
             workdir = Path(tmp)
             storage.download(a.source_key, workdir / f"source{PurePosixPath(a.source_key).suffix}")
-            ctx = Context(aid, workdir, storage, llm, table, lambda stage, detail=None, status="done":
+            ctx = Context(aid, workdir, storage, llm or LLM(), table or FaultTable.load(), lambda stage, detail=None, status="done":
                           set_stage(db, aid, stage, detail, status, attempt))
             _finish(db, storage, aid, attempt, pipeline(ctx), workdir)
     except PipelineError as e:

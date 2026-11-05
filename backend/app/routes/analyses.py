@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import PurePosixPath
 
 from fastapi import APIRouter, Depends, Query, Response
@@ -12,6 +12,7 @@ from app.config import settings
 from app.db import get_db
 from app.errors import ApiError
 from app.models import Analysis, AnalysisStatus, Stage, User
+from app.report import Report
 from app.storage import Storage, get_storage
 
 router = APIRouter()
@@ -24,6 +25,35 @@ class AnalysisIn(BaseModel):
     size: int = Field(ge=1)
     content_type: str = Field(default="", max_length=100)  # 참고용. 실제 값은 확장자로 정한다.
     consent: bool
+
+
+class StageOut(BaseModel):
+    stage: str
+    status: str
+    detail: dict | None
+    at: str | None
+
+
+class AnalysisError(BaseModel):
+    code: str
+    message: str
+
+
+class AnalysisOut(BaseModel):
+    id: int
+    status: str
+    stage: str | None
+    progress: list[StageOut]
+    report: Report | None
+    playback_url: str | None
+    overlay_url: str | None
+    error: AnalysisError | None
+    created_at: datetime
+
+
+class AnalysisList(BaseModel):
+    items: list[AnalysisOut]
+    total: int
 
 
 def _mine(db: Session, user: User, analysis_id: int, lock: bool = False) -> Analysis:
@@ -47,7 +77,7 @@ def _out(a: Analysis, storage: Storage) -> dict:
     return {
         "id": a.id, "status": a.status.value, "stage": a.stage.value if a.stage else None,
         "progress": _progress(a),
-        "report": a.report if done else None,  # ponytail: Task 10에서 타입 있는 Report로 교체
+        "report": a.report if done else None,
         "playback_url": storage.presign_get(a.playback_key) if done and a.playback_key else None,
         "overlay_url": storage.presign_get(f"analyses/{a.id}/overlay.json") if done else None,
         "error": ({"code": a.error_code or "ANALYSIS_FAILED", "message": (a.progress or {}).get("error", {}).get("message")
@@ -83,7 +113,7 @@ def create_analysis(body: AnalysisIn, user: User = Depends(current_user), db: Se
             "upload_headers": headers, "expires_at": now + timedelta(seconds=UPLOAD_TTL_S)}
 
 
-@router.post("/analyses/{analysis_id}/submit")
+@router.post("/analyses/{analysis_id}/submit", response_model=AnalysisOut)
 def submit_analysis(analysis_id: int, user: User = Depends(current_user), db: Session = Depends(get_db),
                     storage: Storage = Depends(get_storage)):
     a = _mine(db, user, analysis_id, lock=True)
@@ -98,7 +128,7 @@ def submit_analysis(analysis_id: int, user: User = Depends(current_user), db: Se
     return _out(a, storage)
 
 
-@router.get("/analyses")
+@router.get("/analyses", response_model=AnalysisList)
 def list_analyses(limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0),
                   user: User = Depends(current_user), db: Session = Depends(get_db),
                   storage: Storage = Depends(get_storage)):
@@ -108,7 +138,7 @@ def list_analyses(limit: int = Query(20, ge=1, le=100), offset: int = Query(0, g
             "total": db.scalar(select(func.count()).where(mine).select_from(Analysis))}
 
 
-@router.get("/analyses/{analysis_id}")
+@router.get("/analyses/{analysis_id}", response_model=AnalysisOut)
 def get_analysis(analysis_id: int, user: User = Depends(current_user), db: Session = Depends(get_db),
                  storage: Storage = Depends(get_storage)):
     return _out(_mine(db, user, analysis_id), storage)
