@@ -51,6 +51,7 @@ api와 worker (`apps/api/.env.example`)
 |------|------|
 | `DATABASE_URL` | `postgresql+psycopg://...` |
 | `S3_ENDPOINT_URL`, `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | 비공개 Bucket |
+| `S3_ADDRESSING_STYLE` | Railway Bucket은 `virtual`(path 주소에는 CORS 규칙이 적용되지 않는다), 로컬 moto는 기본값 `path` |
 | `CLERK_SECRET_KEY`, `CLERK_JWT_KEY` | Clerk 토큰 검증 |
 | `CLERK_AUTHORIZED_PARTIES` | 허용 출처 JSON 배열. 비우면 `WEB_ORIGIN` 하나 |
 | `WEB_ORIGIN` | 웹 주소(CORS) |
@@ -80,6 +81,8 @@ web (`apps/web/.env.example`)
 ```bash
 railway up --service api --detach   # 저장소 루트에서 실행한다. web, worker도 같다.
 ```
+
+`railway up`은 작업 폴더를 그대로 올린다. 커밋하지 않은 변경이 있으면 `git archive HEAD`로 푼 폴더에서 `-p`, `-e`를 주고 실행한다.
 
 `NEXT_PUBLIC_*`를 바꾸면 web을 다시 빌드해야 한다. Bucket CORS의 AllowedOrigins는 웹 주소와 `http://localhost:3100`만 허용한다.
 

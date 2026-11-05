@@ -1,5 +1,7 @@
 import requests
 
+from app.storage import Storage
+
 
 def test_storage_round_trip(storage, tmp_path):
     assert storage.head("missing/key") is None
@@ -29,3 +31,10 @@ def test_delete_prefix(storage, tmp_path):
     assert storage.head("analyses/3/a") is None
     assert storage.head("analyses/3/b") is None
     assert storage.head("analyses/30/a") == 1
+
+
+def test_addressing_style_sets_presigned_host():
+    """Railway Bucket은 virtual-host 주소에서만 CORS 규칙을 적용한다."""
+    args = ("bucket", "auto", "https://s3.example.dev", "k", "s")
+    assert Storage(*args, addressing_style="virtual").presign_put("x", "video/mp4").startswith("https://bucket.s3.example.dev/x")
+    assert Storage(*args).presign_put("x", "video/mp4").startswith("https://s3.example.dev/bucket/x")

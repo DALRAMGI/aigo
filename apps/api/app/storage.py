@@ -8,10 +8,10 @@ from app.config import settings
 
 
 class Storage:
-    """S3 호환 저장소(Railway Bucket, MinIO). 경로 방식 주소를 쓴다."""
+    """S3 호환 저장소(Railway Bucket, MinIO). Railway Bucket은 virtual-host 주소에서만 CORS 규칙을 적용한다."""
 
     def __init__(self, bucket: str, region: str, endpoint_url: str | None,
-                 access_key_id: str, secret_access_key: str):
+                 access_key_id: str, secret_access_key: str, addressing_style: str = "path"):
         self.bucket = bucket
         self.s3 = boto3.client(
             "s3",
@@ -19,13 +19,14 @@ class Storage:
             endpoint_url=endpoint_url or None,
             aws_access_key_id=access_key_id or None,
             aws_secret_access_key=secret_access_key or None,
-            config=Config(signature_version="s3v4", s3={"addressing_style": "path"}),
+            config=Config(signature_version="s3v4", s3={"addressing_style": addressing_style}),
         )
 
     @classmethod
     def from_settings(cls) -> "Storage":
         s = settings
-        return cls(s.s3_bucket, s.s3_region, s.s3_endpoint_url, s.s3_access_key_id, s.s3_secret_access_key)
+        return cls(s.s3_bucket, s.s3_region, s.s3_endpoint_url, s.s3_access_key_id, s.s3_secret_access_key,
+                   s.s3_addressing_style)
 
     def presign_put(self, key: str, content_type: str, expires_s: int = 900) -> str:
         return self.s3.generate_presigned_url(
