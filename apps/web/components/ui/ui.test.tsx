@@ -1,8 +1,10 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { Badge } from "./Badge";
 import { Button, buttonClass } from "./Button";
 import { Card } from "./Card";
+import { DesignProvider } from "./DesignToggle";
 import { Field } from "./Field";
 import { Footer } from "./Footer";
 import { Marquee } from "./Marquee";
@@ -14,7 +16,8 @@ import { Skeleton } from "./Skeleton";
 
 const auth = vi.hoisted(() => ({ isSignedIn: false }));
 vi.mock("@clerk/nextjs", () => ({ useAuth: () => auth }));
-vi.mock("next/navigation", () => ({ usePathname: () => "/analyses" }));
+const refresh = vi.hoisted(() => vi.fn());
+vi.mock("next/navigation", () => ({ usePathname: () => "/analyses", useRouter: () => ({ refresh }) }));
 
 type Entry = Pick<IntersectionObserverEntry, "isIntersecting">;
 let observers: { callback: (entries: Entry[]) => void; disconnect: ReturnType<typeof vi.fn> }[];
@@ -42,6 +45,41 @@ beforeEach(() => {
 });
 
 afterEach(cleanup);
+
+test("디자인 토글은 쿠키를 쓰고 화면을 새로 받는다", () => {
+  refresh.mockClear();
+  render(<Nav />);
+
+  fireEvent.click(screen.getByRole("button", { name: "포스터 디자인으로 전환" }));
+  expect(document.cookie).toContain("aigo-design=poster");
+  expect(refresh).toHaveBeenCalledOnce();
+
+  fireEvent.click(screen.getByRole("button", { name: "기본 디자인으로 전환" }));
+  expect(document.cookie).toContain("aigo-design=classic");
+  expect(refresh).toHaveBeenCalledTimes(2);
+});
+
+test("디자인 토글은 첫 렌더부터 서버 값의 이름을 쓴다", () => {
+  const html = renderToString(
+    <DesignProvider design="poster">
+      <Nav />
+    </DesignProvider>,
+  );
+
+  expect(html).toContain('aria-label="기본 디자인으로 전환"');
+});
+
+test("디자인 토글은 새로고침으로 바뀐 서버 값을 따른다", () => {
+  const nav = (design: "classic" | "poster") => (
+    <DesignProvider design={design}>
+      <Nav />
+    </DesignProvider>
+  );
+  const { rerender } = render(nav("classic"));
+
+  rerender(nav("poster"));
+  expect(screen.getByRole("button", { name: "기본 디자인으로 전환" })).toBeTruthy();
+});
 
 test("Reveal은 reduced-motion에서 바로 보인다", () => {
   stubMotion(true);

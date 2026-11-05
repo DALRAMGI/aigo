@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import { ProductImage } from "@/components/commerce/ProductImage";
 import type { Product } from "@/components/commerce/types";
+import { useProducts } from "@/components/commerce/useProducts";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -38,28 +38,7 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
 }
 
 export function Products() {
-  const [products, setProducts] = useState<Product[] | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  // 공개 API라 토큰이 필요 없다. useApi를 쓰면 Clerk가 뜰 때까지 상품이 기다리게 된다.
-  const load = useCallback(async (signal?: AbortSignal) => {
-    setFailed(false);
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/products`, { signal });
-      if (!res.ok) throw new Error(String(res.status));
-      const { items } = await res.json();
-      if (!Array.isArray(items)) throw new Error("items 없음");
-      setProducts(items);
-    } catch {
-      if (!signal?.aborted) setFailed(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    load(controller.signal);
-    return () => controller.abort();
-  }, [load]);
+  const { products, failed, retry } = useProducts();
 
   return (
     <section id="products" aria-labelledby="products-title">
@@ -86,7 +65,7 @@ export function Products() {
               <ProductImage alt="DashPi 블랙박스 제품 사진" sizes="384px" />
             </div>
             <Notice tone="danger">상품 정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</Notice>
-            <Button variant="secondary" size="sm" onClick={() => load()}>
+            <Button variant="secondary" size="sm" onClick={retry}>
               다시 시도
             </Button>
           </div>
