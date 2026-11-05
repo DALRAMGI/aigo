@@ -29,6 +29,10 @@
 :root {
   color-scheme: light dark;
 
+  /* 글꼴 */
+  --font-body: "Pretendard Variable", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-code: var(--font-geist-mono), "Pretendard Variable", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
   /* 모서리: 앱은 3px, 랜딩은 data-surface="landing" 안에서 0 */
   --radius: 3px;
 
@@ -49,4 +53,47 @@
 
 [data-surface="landing"] {
   --radius: 0;
+}
+
+/* 포스터 디자인. html의 data-design은 서버가 aigo-design 쿠키로 정한다.
+   중첩된 [data-theme]에서도 light-dark()가 다시 계산되게 같은 값을 둔다. */
+[data-design="poster"],
+[data-design="poster"] [data-theme] {
+  --bg: light-dark(#f3f3ef, #0a0d3d);
+  --raised: light-dark(#ffffff, #141852);
+  --sunken: light-dark(#e6e6df, #070a2e);
+  --ink: light-dark(#101010, #f3f3ef);
+  --ink-strong: light-dark(#000000, #ffffff);
+  --muted: light-dark(rgb(16 16 16 / 0.74), rgb(243 243 239 / 0.78));
+  --faint: light-dark(rgb(16 16 16 / 0.46), rgb(243 243 239 / 0.44));
+  --line: light-dark(rgb(16 16 16 / 0.2), rgb(243 243 239 / 0.22));
+  --line-strong: light-dark(#101010, rgb(243 243 239 / 0.72));
+  --invert-bg: light-dark(#202ee6, #ffffff);
+  --invert-fg: light-dark(#ffffff, #0a0d3d);
+  --accent: light-dark(#202ee6, #4a58ff);
+  --accent-ink: light-dark(#1621b8, #ffe456);
+  --ok: light-dark(#0f6b4f, #6fd3ae);
+  --danger: light-dark(#b3261e, #ff9a93);
+}
+
+[data-design="poster"] {
+  --font-code: var(--font-body); /* 고정폭 표지 대신 굵은 글자 하나로 간다 */
+  --radius: 0;
+}
+
+/* 유틸리티보다 앞서야 해서 층 밖에 둔다 */
+[data-design="poster"] :is(h1, h2, h3):not(.hud) {
+  font-weight: 900;
+  letter-spacing: -0.035em;
+}
+
+/* 뒤집힌 면이 강조색과 같은 파랑이라 그 위의 막대가 묻히지 않게 한다 */
+[data-design="poster"] .bg-invert-bg {
+  --accent: light-dark(#ffe456, #4a58ff);
+}
+
+[data-design="poster"] .hud {
+  font-weight: 800;
+  letter-spacing: 0;
+  word-spacing: normal;
 }

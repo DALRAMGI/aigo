@@ -17,8 +17,8 @@
   --color-ok: var(--ok);
   --color-danger: var(--danger);
 
-  --font-sans: "Pretendard Variable", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), "Pretendard Variable", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-code);
 
   --radius-app: var(--radius);
 }

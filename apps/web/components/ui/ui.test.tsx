@@ -14,7 +14,8 @@ import { Skeleton } from "./Skeleton";
 
 const auth = vi.hoisted(() => ({ isSignedIn: false }));
 vi.mock("@clerk/nextjs", () => ({ useAuth: () => auth }));
-vi.mock("next/navigation", () => ({ usePathname: () => "/analyses" }));
+const refresh = vi.hoisted(() => vi.fn());
+vi.mock("next/navigation", () => ({ usePathname: () => "/analyses", useRouter: () => ({ refresh }) }));
 
 type Entry = Pick<IntersectionObserverEntry, "isIntersecting">;
 let observers: { callback: (entries: Entry[]) => void; disconnect: ReturnType<typeof vi.fn> }[];
@@ -42,6 +43,27 @@ beforeEach(() => {
 });
 
 afterEach(cleanup);
+
+test("디자인 토글은 쿠키를 쓰고 화면을 새로 받는다", () => {
+  document.documentElement.dataset.design = "classic";
+  refresh.mockClear();
+  render(<Nav />);
+
+  fireEvent.click(screen.getByRole("button", { name: "포스터 디자인으로 전환" }));
+  expect(document.cookie).toContain("aigo-design=poster");
+  expect(refresh).toHaveBeenCalledOnce();
+
+  fireEvent.click(screen.getByRole("button", { name: "기본 디자인으로 전환" }));
+  expect(document.cookie).toContain("aigo-design=classic");
+  expect(refresh).toHaveBeenCalledTimes(2);
+});
+
+test("디자인 토글은 서버가 내려 준 값으로 시작한다", () => {
+  document.documentElement.dataset.design = "poster";
+  render(<Nav />);
+
+  expect(screen.getByRole("button", { name: "기본 디자인으로 전환" })).toBeTruthy();
+});
 
 test("Reveal은 reduced-motion에서 바로 보인다", () => {
   stubMotion(true);
