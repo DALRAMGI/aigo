@@ -2,7 +2,6 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import time
-from contextlib import contextmanager
 
 import pytest
 from pydantic import BaseModel
@@ -181,22 +180,43 @@ def test_beat_keeps_long_job_from_requeue(db, user):
     assert worker.requeue_stale(db, datetime.now(timezone.utc)) == 0 and a.status == AnalysisStatus.processing
 
 
-def test_heartbeat_thread_refreshes_during_pipeline(db, user, storage):
-    a = mk(db, user); put_source(storage, a); a = worker.claim_next(db)
-    _age(db, a)
-    old = a.heartbeat_at
+def test_heartbeat_thread_refreshes_during_pipeline(_migrated, storage):
+    from sqlalchemy import delete
 
-    @contextmanager
-    def factory():  # 메인 스레드가 잠자는 동안에만 같은 세션을 쓴다
-        yield db
+    from app.db import SessionLocal
+    from app.models import User
 
-    def slow(ctx):
+    with SessionLocal() as setup:  # 스레드가 자기 세션으로 보도록 실제로 커밋한다.
+        u = User(clerk_user_id="user_beat", email="b@example.com", name="b")
+        setup.add(u)
+        setup.flush()
+        a = mk(setup, u)
+        setup.commit()
+        aid, uid = a.id, u.id
+    put_source(storage, a)
+    seen = {}
+
+    def slow(ctx):  # on_stage를 부르지 않으므로 heartbeat_at은 스레드만 바꾼다.
+        with SessionLocal() as s:
+            seen["before"] = s.get(Analysis, aid).heartbeat_at
         time.sleep(0.4)
-        return ok_pipeline(ctx)
+        with SessionLocal() as s:
+            seen["after"] = s.get(Analysis, aid).heartbeat_at
+        p = ctx.workdir / "out.mp4"
+        p.write_bytes(b"mp4")
+        return PipelineResult(report=Rep(), trace={}, playback_path=p, overlay={})
 
-    worker.process(db, a, storage, slow, session_factory=factory, heartbeat_s=0.05)
-    db.refresh(a)
-    assert a.status == AnalysisStatus.done and a.heartbeat_at > old
+    try:
+        with SessionLocal() as db:
+            a = worker.claim_next(db)
+            worker.process(db, a, storage, slow, heartbeat_s=0.05)
+            assert a.status == AnalysisStatus.done
+        assert seen["after"] > seen["before"]
+    finally:
+        with SessionLocal() as c:
+            c.execute(delete(Analysis).where(Analysis.id == aid))
+            c.execute(delete(User).where(User.id == uid))
+            c.commit()
 
 
 def test_delete_between_check_and_finish_drops_result(_migrated, storage):

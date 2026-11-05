@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 
-from app.pipeline.run import PipelineError
+from app.errors import PipelineError
 
 TIMEOUT_S = 600  # 하위 프로세스마다 10분
 FPS = 30

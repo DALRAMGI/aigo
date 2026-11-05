@@ -7,7 +7,7 @@ from app.routes import analyses, me, orders, products
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="DashPi API")
+    app = FastAPI(title="AIGO API")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[settings.web_origin],

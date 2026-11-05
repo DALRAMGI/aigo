@@ -10,10 +10,14 @@ from app.config import settings
 from app.db import SessionLocal, get_db
 from app.main import create_app
 from app.models import Analysis, AnalysisStatus, User
+from app.report import Report
 from app.storage import get_storage
 from tests.conftest import issue_token
 
 P = "/api/v1/analyses"
+REPORT = Report(involvement="none", reason="충돌이 보이지 않습니다", accident_type=None, summary=None, collision_t=None,
+                confidence="low", severity=None, timeline=[], facts=[], unseen=[], fault=None, fault_note=None,
+                serious_violations=[], favorable=[], unfavorable=[], actions_now=[], actions_later=[]).model_dump()
 BODY = {"filename": "a.mp4", "size": 1000, "content_type": "video/mp4", "consent": True}
 
 
@@ -112,6 +116,15 @@ def test_global_daily_limit(client, db, monkeypatch, frozen_time):
     assert r.status_code == 429 and r.json()["code"] == "SERVICE_LIMIT"
 
 
+def test_failed_analysis_still_counts_for_global_limit(client, db, monkeypatch, frozen_time, other_auth):
+    monkeypatch.setattr(settings, "global_daily_limit", 1)
+    a_id = client.post(P, json=BODY, headers=auth()).json()["id"]
+    db.get(Analysis, a_id).status = AnalysisStatus.failed
+    db.flush()
+    r = client.post(P, json=BODY, headers=other_auth)
+    assert r.status_code == 429 and r.json()["code"] == "SERVICE_LIMIT"
+
+
 def test_concurrent_create_cannot_exceed_limit(fake_clerk, storage, monkeypatch):
     monkeypatch.setattr(settings, "user_daily_limit", 1)
     app = create_app()
@@ -161,11 +174,11 @@ def test_get_shape_hides_urls_until_done(client, storage, db):
     assert j["status"] == "created" and j["progress"] == [] and j["report"] is None
     assert j["playback_url"] is None and j["overlay_url"] is None and j["error"] is None
     a = db.get(Analysis, a_id)
-    a.status, a.report = AnalysisStatus.done, {"x": 1}
+    a.status, a.report = AnalysisStatus.done, REPORT
     a.playback_key = f"analyses/{a_id}/playback.mp4"
     db.flush()
     j = client.get(f"{P}/{a_id}", headers=auth()).json()
-    assert j["report"] == {"x": 1}
+    assert j["report"] == REPORT
     assert f"analyses/{a_id}/playback.mp4" in j["playback_url"]
     assert f"analyses/{a_id}/overlay.json" in j["overlay_url"]
 
@@ -244,3 +257,10 @@ def test_deleted_analysis_is_404_hidden_and_erased(client, storage, db):
     db.refresh(a)
     assert a.deleted_at and a.status == AnalysisStatus.created
     assert (a.report, a.trace, a.progress, a.source_key, a.playback_key, a.source_size) == (None, None, {}, None, None, None)
+
+
+def test_openapi_exposes_typed_report(client):
+    spec = client.app.openapi()
+    ref = spec["paths"]["/api/v1/analyses/{analysis_id}"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+    assert ref["$ref"].endswith("/AnalysisOut")
+    assert "Report" in spec["components"]["schemas"] and "FaultAssessment" in spec["components"]["schemas"]

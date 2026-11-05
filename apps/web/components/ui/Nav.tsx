@@ -28,7 +28,10 @@ export function Nav() {
           href="/"
           className="flex items-center border-r border-line px-4 font-mono text-sm font-semibold tracking-tight focus-visible:-outline-offset-2 sm:px-5"
         >
-          Dash<span className="text-accent-ink">/</span>Pi
+          {/* flex 항목이 되면 이름이 "AI GO"로 갈라지므로 한 덩어리로 감싼다 */}
+          <span>
+            AI<span className="text-accent-ink">GO</span>
+          </span>
         </Link>
 
         <div className="flex items-stretch">

@@ -156,8 +156,14 @@ test("Nav는 현재 경로를 표시한다", () => {
   expect(screen.getAllByRole("link", { name: "내 분석" })[0].getAttribute("aria-current")).toBe("page");
 });
 
+test("Nav 워드마크는 서비스 이름 AIGO다", () => {
+  render(<Nav />);
+  expect(screen.getByRole("link", { name: "AIGO" }).getAttribute("href")).toBe("/");
+});
+
 test("Footer는 캡스톤 가상 서비스임을 밝힌다", () => {
   render(<Footer />);
+  expect(screen.getByText(/AIGO는 캡스톤 가상 서비스입니다/)).toBeTruthy();
 
   expect(screen.getByText(/캡스톤 가상 서비스/)).toBeTruthy();
 });

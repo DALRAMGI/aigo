@@ -27,3 +27,11 @@ def install_error_handlers(app: FastAPI) -> None:
         if e.status_code == 404:
             return _body(404, "NOT_FOUND", "찾을 수 없습니다.")
         return _body(e.status_code, "HTTP_ERROR", "요청을 처리할 수 없습니다.")
+
+
+class PipelineError(Exception):
+    """사용자에게 보여 줄 메시지가 있는 분석 실패."""
+
+    def __init__(self, code: str, message: str):
+        super().__init__(f"{code}: {message}")
+        self.code, self.message = code, message
