@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
-import { ProductBuy, ProductVisual } from "@/components/commerce/ProductBuy";
+import { ProductBuy } from "@/components/commerce/ProductBuy";
 import { ProductError } from "@/components/commerce/ProductError";
+import { ProductImage } from "@/components/commerce/ProductImage";
 import type { Product } from "@/components/commerce/types";
 import { Footer } from "@/components/ui/Footer";
 import { Nav } from "@/components/ui/Nav";
@@ -32,7 +33,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       <main className="frame">
         <SectionLabel index="03" aside="상품">{p.name}</SectionLabel>
         <div className="grid gap-8 p-5 md:grid-cols-2 md:p-10">
-          <ProductVisual />
+          <ProductImage src={p.image_url} alt={`${p.name} 제품 사진`} sizes="(min-width: 768px) 50vw, 100vw" />
           <div className="flex flex-col gap-6">
             <h1 className="text-3xl font-bold tracking-[-0.02em]">{p.name}</h1>
             <p className="text-muted">{p.description}</p>

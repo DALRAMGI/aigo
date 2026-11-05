@@ -4,6 +4,7 @@ import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useId } from "react";
+import { ThemeToggle } from "./ThemeToggle";
 
 const CELL = "flex items-center border-l border-line px-4 text-[13px] font-semibold whitespace-nowrap";
 const INVERT =
@@ -47,6 +48,7 @@ export function Nav() {
               </Link>
             ))}
           </div>
+          <ThemeToggle className={`flex w-12 items-center justify-center border-l border-line text-muted ${INVERT}`} />
           <Link
             href="/analyses/new"
             className="flex items-center bg-invert-bg px-4 text-[13px] font-bold whitespace-nowrap text-invert-fg transition-colors duration-[var(--dur-hover)] hover:bg-accent-ink focus-visible:-outline-offset-2 sm:px-5"
