@@ -11,6 +11,79 @@ from app.errors import ApiError  # noqa: E402
 from app.main import create_app  # noqa: E402
 
 
+# ---- Clerk 인증 테스트 도구: 테스트 전용 RSA 키와 가짜 Clerk 클라이언트 ----
+# .env의 실제 Clerk 키가 테스트에 영향을 주지 않도록 매 테스트마다 설정을 덮어쓴다.
+import time  # noqa: E402
+from types import SimpleNamespace  # noqa: E402
+
+import jwt  # noqa: E402
+from cryptography.hazmat.primitives import serialization  # noqa: E402
+from cryptography.hazmat.primitives.asymmetric import rsa  # noqa: E402
+
+
+def _new_key():
+    return rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+
+_TEST_KEY, _OTHER_KEY = _new_key(), _new_key()
+TEST_ORIGIN = "http://localhost:3000"
+
+
+def _public_pem(key) -> str:
+    return key.public_key().public_bytes(
+        serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo).decode()
+
+
+def issue_token(sub: str, email: str, expired: bool = False, *, key=None, azp: str = TEST_ORIGIN) -> str:
+    now = int(time.time())
+    claims = {"sub": sub, "email": email, "azp": azp, "iat": now - 3600, "nbf": now - 3600,
+              "exp": now - 600 if expired else now + 600}
+    return jwt.encode(claims, key or _TEST_KEY, algorithm="RS256")
+
+
+@pytest.fixture(autouse=True)
+def _clerk_test_settings(monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "clerk_jwt_key", _public_pem(_TEST_KEY))
+    monkeypatch.setattr(settings, "clerk_secret_key", "sk_test_dummy")
+    monkeypatch.setattr(settings, "web_origin", TEST_ORIGIN)
+    monkeypatch.setattr(settings, "clerk_authorized_parties", [TEST_ORIGIN])
+
+
+class FakeClerk:
+    """clerk.users.get / delete만 흉내 낸다. fail_get / fail_delete로 장애를 만든다."""
+
+    def __init__(self):
+        self.deleted: list[str] = []
+        self.get_calls: list[str] = []
+        self.fail_get = False
+        self.fail_delete = False
+        self.on_get = None  # 동시성 테스트용 훅
+        self.users = SimpleNamespace(get=self._get, delete=self._delete)
+
+    def _get(self, *, user_id: str):
+        self.get_calls.append(user_id)
+        if self.on_get:
+            self.on_get()
+        if self.fail_get:
+            raise RuntimeError("clerk down")
+        return SimpleNamespace(
+            first_name="길동", last_name="홍", primary_email_address_id="idn_2",
+            email_addresses=[SimpleNamespace(id="idn_1", email_address="other@example.com"),
+                             SimpleNamespace(id="idn_2", email_address=f"{user_id}@example.com")])
+
+    def _delete(self, *, user_id: str):
+        if self.fail_delete:
+            raise RuntimeError("clerk down")
+        self.deleted.append(user_id)
+
+
+@pytest.fixture
+def fake_clerk():
+    return FakeClerk()
+
+
 @pytest.fixture
 def client():
     return TestClient(create_app())

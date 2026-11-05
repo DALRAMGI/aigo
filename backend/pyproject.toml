@@ -10,6 +10,8 @@ dependencies = [
   "psycopg[binary]",
   "alembic>=1.20.1",
   "boto3>=1.43.124",
+  "clerk-backend-api>=7.1.0",
+  "cryptography>=50.0.2",
 ]
 
 [dependency-groups]

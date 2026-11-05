@@ -58,3 +58,8 @@ class Storage:
             objs = [{"Key": o["Key"]} for o in page.get("Contents", [])]
             if objs:
                 self.s3.delete_objects(Bucket=self.bucket, Delete={"Objects": objs})
+
+
+def get_storage() -> Storage:
+    """FastAPI 의존성. 테스트에서는 dependency_overrides로 바꾼다."""
+    return Storage.from_settings()

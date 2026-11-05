@@ -1,4 +1,4 @@
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     clerk_secret_key: str = ""
     clerk_jwt_key: str = ""
     web_origin: str = "http://localhost:3000"
+    # 비워 두면 web_origin 하나만 허용한다. 환경변수는 JSON 배열로 쓴다.
+    clerk_authorized_parties: list[str] = []
     toss_secret_key: str
     openai_api_key: str = ""
     openai_model: str = "gpt-5.5"
@@ -22,6 +24,12 @@ class Settings(BaseSettings):
     max_video_seconds: int = 120
     user_daily_limit: int = 5
     global_daily_limit: int = 100
+
+    @model_validator(mode="after")
+    def _default_parties(self):
+        if not self.clerk_authorized_parties:
+            self.clerk_authorized_parties = [self.web_origin]
+        return self
 
     @field_validator("toss_secret_key")
     @classmethod

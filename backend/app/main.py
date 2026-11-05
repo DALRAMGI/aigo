@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.errors import install_error_handlers
+from app.routes import me
 
 
 def create_app() -> FastAPI:
@@ -19,4 +20,5 @@ def create_app() -> FastAPI:
     def health():
         return {"status": "ok"}
 
+    app.include_router(me.router, prefix="/api/v1")
     return app
