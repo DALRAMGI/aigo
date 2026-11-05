@@ -1,6 +1,6 @@
 import subprocess
 
-import numpy as np
+import cv2
 import pytest
 
 from app.pipeline.media import audio_envelope, extract_frames, normalize, probe
@@ -82,6 +82,38 @@ def test_frame_timestamps_are_exact(tmp_path):
         assert frames
         for k, f in enumerate(frames):
             assert f.t == pytest.approx(start + k / fps, abs=1e-6)
-            import cv2
             gray = cv2.imread(str(f.path), cv2.IMREAD_GRAYSCALE).mean()
             assert round((gray - 8) / 4) == round(f.t * 30), (fps, k, gray)
+
+
+def test_audio_only_raises_invalid_video(tmp_path):
+    src = tmp_path / "a.m4a"
+    mk._ff("-f", "lavfi", "-i", "sine=duration=2", "-c:a", "aac", str(src))
+    with pytest.raises(PipelineError) as e:
+        _norm(src, tmp_path)
+    assert e.value.code == "INVALID_VIDEO"
+
+
+def test_clip_shorter_than_one_frame_interval(tmp_path):
+    src = mk.testsrc(tmp_path / "tiny.mp4", seconds=0.1, rate=30, audio=False)
+    info, a, _ = _norm(src, tmp_path)
+    frames = extract_frames(a, 5, tmp_path / "f")
+    assert info.duration > 0 and [f.t for f in frames] == [0.0]
+
+
+def test_duration_falls_back_to_stream(tmp_path):
+    # 파이프로 쓴 webm에는 컨테이너 길이가 없다.
+    src = tmp_path / "s.webm"
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=160x90:rate=25:duration=2",
+                  "-c:v", "libvpx", "-f", "webm", "-"], capture_output=True, check=True).stdout
+    src.write_bytes(raw)
+    assert probe(src).duration == pytest.approx(2, abs=0.2)
+
+
+def test_extract_frames_ignores_stale_files(tmp_path):
+    _, a, _ = _norm(mk.counter(tmp_path / "c.mp4", frames=30), tmp_path)
+    out = tmp_path / "f"
+    out.mkdir()
+    (out / "000099.jpg").write_bytes(b"stale")
+    assert len(extract_frames(a, 5, out)) == 5
+    assert not (out / "000099.jpg").exists()

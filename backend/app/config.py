@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     openai_reasoning_effort: str = "low"
     max_video_bytes: int = 209715200
     max_video_seconds: int = 120
+    yolo_imgsz: int = 960  # 1080p 영상에서 640보다 탐지가 1.3배 많고 1280과는 비슷하다.
+    yolo_conf: float = 0.15
     yolo_weights: str = "yolo11n.pt"  # 없으면 ultralytics가 내려받는다. Docker는 빌드 때 넣는다.
     user_daily_limit: int = 5
     global_daily_limit: int = 100

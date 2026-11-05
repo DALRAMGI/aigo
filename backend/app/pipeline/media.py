@@ -35,6 +35,19 @@ def _run(args: list[str], *, binary=False) -> subprocess.CompletedProcess:
         raise PipelineError(*_BAD) from e
 
 
+def _duration(path: Path, fmt: dict, stream: dict) -> float:
+    """컨테이너 길이가 없으면(MediaRecorder webm 등) 스트림 길이, 그것도 없으면 끝까지 디코드해 잰다."""
+    for d in (fmt.get("duration"), stream.get("duration")):
+        try:
+            return float(d)
+        except (TypeError, ValueError):
+            pass
+    out = _run(["ffmpeg", "-v", "error", "-i", str(path), "-map", "0:v:0", "-f", "null", "-",
+                "-progress", "pipe:1", "-nostats"]).stdout
+    last = [ln for ln in out.splitlines() if ln.startswith("out_time_us=")]
+    return int(last[-1].split("=")[1]) / 1e6
+
+
 def probe(path: Path) -> VideoInfo:
     """ffprobe로 실제 영상인지 확인한다. 확장자는 믿지 않는다."""
     out = _run(["ffprobe", "-v", "error", "-print_format", "json", "-show_streams", "-show_format", str(path)])
@@ -44,7 +57,7 @@ def probe(path: Path) -> VideoInfo:
         v = next(s for s in streams if s["codec_type"] == "video"
                  and not s.get("disposition", {}).get("attached_pic"))
         w, h = int(v["width"]), int(v["height"])
-        duration = float(data["format"]["duration"])
+        duration = _duration(path, data["format"], v)
     except (ValueError, KeyError, StopIteration, TypeError) as e:
         raise PipelineError(*_BAD) from e
     # 이미지 한 장(png 등)은 영상이 아니다.
@@ -86,6 +99,8 @@ def extract_frames(path: Path, fps: int, out_dir: Path, start: float = 0,
     그래서 프레임 번호로 직접 고르고, t는 고른 프레임의 번호 / 30으로 낸다.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
+    for old in out_dir.glob("*.jpg"):  # 이전 실행의 파일이 다른 t와 짝지어지지 않게 한다.
+        old.unlink()
     i0 = round(start * FPS)
     i1 = round(end * FPS) if end is not None else None
     cmd = ["ffmpeg", "-v", "error", "-y"]
