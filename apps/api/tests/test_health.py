@@ -36,3 +36,17 @@ def test_cors_only_web_origin(client):
 def test_non_test_toss_key_rejected():
     with pytest.raises(ValidationError):
         Settings(database_url="x", toss_secret_key="live_sk_real")
+
+
+def test_cors_allows_every_configured_web_origin(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app.config import settings
+    from app.main import create_app
+
+    monkeypatch.setattr(settings, "clerk_authorized_parties", ["https://a.example", "https://b.example"])
+    client = TestClient(create_app())
+    for origin in ("https://a.example", "https://b.example"):
+        r = client.get("/api/v1/health", headers={"Origin": origin})
+        assert r.headers["access-control-allow-origin"] == origin
+    assert "access-control-allow-origin" not in client.get("/api/v1/health", headers={"Origin": "https://evil.example"}).headers
