@@ -110,7 +110,7 @@ web (`apps/web/.env.example`)
 
 ## Railway 배포
 
-프로젝트 `AIGO`: `web`, `api`, `worker`, Postgres, Bucket `uploads`. 설정은 서비스에 들어 있고 저장소에는 Dockerfile만 있다(Railway가 설정 파일 경로 지정을 더는 받지 않는다).
+프로젝트 `AIGO`: `web`, `api`, `worker`, Postgres, Bucket `aigo-videos`. 모두 싱가포르 리전(`asia-southeast1-eqsg3a`, Bucket은 `sin`)에 있다. 설정은 서비스에 들어 있고 저장소에는 Dockerfile만 있다(Railway가 설정 파일 경로 지정을 더는 받지 않는다).
 
 | 서비스 | Root Directory | 시작 명령 | 상태 확인 |
 |--------|----------------|-----------|-----------|
