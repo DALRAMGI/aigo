@@ -26,13 +26,9 @@ class AnalysisIn(BaseModel):
     consent: bool
 
 
-def delete_analysis_files(storage: Storage, analysis_id: int) -> None:
-    """분석 하나의 모든 파일(원본, 재생본, 오버레이)을 지운다. DELETE /me와 공용이다."""
-    storage.delete_prefix(f"analyses/{analysis_id}/")
-
-
 def _mine(db: Session, user: User, analysis_id: int, lock: bool = False) -> Analysis:
-    q = select(Analysis).where(Analysis.id == analysis_id, Analysis.user_id == user.id)
+    q = select(Analysis).where(Analysis.id == analysis_id, Analysis.user_id == user.id,
+                                    Analysis.deleted_at.is_(None))
     a = db.scalar(q.with_for_update() if lock else q)
     if not a:
         raise ApiError(404, "ANALYSIS_NOT_FOUND", "분석을 찾을 수 없습니다.")
@@ -71,8 +67,8 @@ def create_analysis(body: AnalysisIn, user: User = Depends(current_user), db: Se
     if body.size > settings.max_video_bytes:
         raise ApiError(400, "VIDEO_TOO_LARGE", f"영상은 {settings.max_video_bytes // 1024 // 1024}MB 이하여야 합니다.")
     try:
-        quota.reserve_analysis(db, user)
         now = quota._now()
+        quota.reserve_analysis(db, user, now)
         a = Analysis(user_id=user.id, created_at=now, consent_at=now, source_size=body.size)
         db.add(a)
         db.flush()
@@ -105,7 +101,7 @@ def submit_analysis(analysis_id: int, user: User = Depends(current_user), db: Se
 def list_analyses(limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0),
                   user: User = Depends(current_user), db: Session = Depends(get_db),
                   storage: Storage = Depends(get_storage)):
-    mine = Analysis.user_id == user.id
+    mine = (Analysis.user_id == user.id) & Analysis.deleted_at.is_(None)
     rows = db.scalars(select(Analysis).where(mine).order_by(Analysis.id.desc()).limit(limit).offset(offset))
     return {"items": [_out(a, storage) for a in rows],
             "total": db.scalar(select(func.count()).where(mine).select_from(Analysis))}
@@ -121,7 +117,7 @@ def get_analysis(analysis_id: int, user: User = Depends(current_user), db: Sessi
 def delete_analysis(analysis_id: int, user: User = Depends(current_user), db: Session = Depends(get_db),
                     storage: Storage = Depends(get_storage)):
     a = _mine(db, user, analysis_id)
-    delete_analysis_files(storage, a.id)
-    db.delete(a)
+    storage.delete_analysis_files(a.id)
+    a.erase(quota._now())  # 행은 남겨 하루 한도에 계속 센다.
     db.commit()
     return Response(status_code=204)

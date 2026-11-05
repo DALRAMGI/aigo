@@ -96,7 +96,8 @@ class Analysis(Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    # 탈퇴하면 NULL로 바꿔 한도 집계용 빈 행만 남긴다.
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     status: Mapped[AnalysisStatus] = mapped_column(
         _enum(AnalysisStatus, "analysis_status"), default=AnalysisStatus.created
     )
@@ -115,4 +116,12 @@ class Analysis(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), **_now)
+
+    def erase(self, now: datetime) -> None:
+        """삭제 표시를 하고 내용을 지운다. 하루 한도 집계를 위해 상태와 created_at 행은 남긴다."""
+        self.deleted_at = now
+        self.report = self.trace = None
+        self.progress = {}
+        self.source_key = self.playback_key = self.source_size = self.error_code = None

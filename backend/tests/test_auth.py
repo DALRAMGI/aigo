@@ -117,6 +117,10 @@ def test_delete_me_removes_analyses_files_and_clerk_user(client, db, storage, fa
     assert db.scalar(select(func.count()).select_from(User).where(User.id == user.id)) == 0
     assert db.scalar(select(func.count()).select_from(Analysis).where(Analysis.user_id == user.id)) == 0
     assert db.scalar(select(func.count()).select_from(Analysis).where(Analysis.user_id == other.id)) == 1
+    # 행은 내용이 지워진 채 user_id NULL로 남는다(전체 한도 집계 보존).
+    for a in (a1, a2):
+        db.refresh(a)
+        assert a.user_id is None and a.deleted_at and a.source_key is None and a.report is None
     assert fake_clerk.deleted == [user.clerk_user_id]
 
 

@@ -59,6 +59,10 @@ class Storage:
             if objs:
                 self.s3.delete_objects(Bucket=self.bucket, Delete={"Objects": objs})
 
+    def delete_analysis_files(self, analysis_id: int) -> None:
+        """분석 하나의 모든 파일(원본, 재생본, 오버레이)을 지운다."""
+        self.delete_prefix(f"analyses/{analysis_id}/")
+
 
 def get_storage() -> Storage:
     """FastAPI 의존성. 테스트에서는 dependency_overrides로 바꾼다."""

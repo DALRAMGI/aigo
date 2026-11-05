@@ -101,12 +101,12 @@ def test_failed_analysis_not_counted(client, db, monkeypatch):
     assert create(client).status_code == 201
 
 
-def test_global_daily_limit(client, db, monkeypatch):
+def test_global_daily_limit(client, db, monkeypatch, frozen_time):
     monkeypatch.setattr(settings, "global_daily_limit", 1)
     other = User(clerk_user_id="user_x")
     db.add(other)
     db.flush()
-    db.add(Analysis(user_id=other.id, created_at=datetime.now(UTC)))
+    db.add(Analysis(user_id=other.id, created_at=frozen_time[0]))
     db.flush()
     r = create(client)
     assert r.status_code == 429 and r.json()["code"] == "SERVICE_LIMIT"
@@ -194,7 +194,7 @@ def test_delete_removes_prefix(client, storage, db):
     assert client.delete(f"{P}/{a_id}", headers=auth()).status_code == 204
     assert storage.head(f"analyses/{a_id}/source.mp4") is None
     assert storage.head(f"analyses/{a_id}/playback.mp4") is None
-    assert db.get(Analysis, a_id) is None
+    assert db.get(Analysis, a_id).deleted_at is not None
 
 
 def test_list_returns_own_items_only(client, other_auth):
@@ -203,3 +203,44 @@ def test_list_returns_own_items_only(client, other_auth):
     j = client.get(P, headers=auth()).json()
     assert j["total"] == 2 and [i["id"] for i in j["items"]] == ids[::-1]
     assert client.get(P + "?limit=1&offset=1", headers=auth()).json()["items"][0]["id"] == ids[0]
+
+
+def test_delete_does_not_free_user_quota(client, monkeypatch):
+    monkeypatch.setattr(settings, "user_daily_limit", 1)
+    a_id = create(client).json()["id"]
+    assert client.delete(f"{P}/{a_id}", headers=auth()).status_code == 204
+    r = create(client)
+    assert r.status_code == 429 and r.json()["code"] == "DAILY_LIMIT"
+
+
+def test_delete_does_not_free_global_quota(client, monkeypatch, other_auth):
+    monkeypatch.setattr(settings, "global_daily_limit", 1)
+    a_id = create(client).json()["id"]
+    assert client.delete(f"{P}/{a_id}", headers=auth()).status_code == 204
+    r = create(client, headers=other_auth)
+    assert r.status_code == 429 and r.json()["code"] == "SERVICE_LIMIT"
+
+
+def test_withdrawal_keeps_global_count(client, db, fake_clerk, monkeypatch, other_auth):
+    monkeypatch.setattr(settings, "global_daily_limit", 1)
+    create(client)
+    assert client.delete("/api/v1/me", headers=auth()).status_code == 204
+    r = create(client, headers=other_auth)
+    assert r.status_code == 429 and r.json()["code"] == "SERVICE_LIMIT"
+
+
+def test_deleted_analysis_is_404_hidden_and_erased(client, storage, db):
+    a_id = create(client).json()["id"]
+    put(storage, a_id)
+    a = db.get(Analysis, a_id)
+    a.report, a.trace, a.progress, a.playback_key = {"x": 1}, {"y": 1}, {"scan": {}}, "k"
+    db.flush()
+    assert client.delete(f"{P}/{a_id}", headers=auth()).status_code == 204
+    for r in (client.get(f"{P}/{a_id}", headers=auth()), client.post(f"{P}/{a_id}/submit", headers=auth()),
+              client.delete(f"{P}/{a_id}", headers=auth())):
+        assert r.status_code == 404
+    j = client.get(P, headers=auth()).json()
+    assert j["items"] == [] and j["total"] == 0
+    db.refresh(a)
+    assert a.deleted_at and a.status == AnalysisStatus.created
+    assert (a.report, a.trace, a.progress, a.source_key, a.playback_key, a.source_size) == (None, None, {}, None, None, None)
