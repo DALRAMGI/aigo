@@ -3,11 +3,14 @@ import { StrictMode } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { CheckoutForm } from "./CheckoutForm";
 import { OrderList } from "./OrderList";
+import { ProductError } from "./ProductError";
 import { QuantityPicker } from "./QuantityPicker";
 import type { Order } from "./types";
 import { FailView, SuccessView } from "./PaymentResult";
 
 vi.mock("@clerk/nextjs", () => ({ useAuth: () => ({ getToken: async () => "tok" }) }));
+const nav = vi.hoisted(() => ({ refresh: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => nav }));
 
 const widgets = vi.hoisted(() => ({
   setAmount: vi.fn(),
@@ -22,7 +25,7 @@ vi.mock("@tosspayments/tosspayments-sdk", () => ({
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
-const PRODUCT = { slug: "dashpi-standard", name: "DashPi 표준형", price: 129000, description: "", specs: {}, image_url: null };
+const PRODUCT = { slug: "dashpi-standard", name: "DashPi 표준형", price: 129000, description: "", specs: {}, image_url: "" };
 const order = (over: Partial<Order> = {}): Order => ({
   id: 7, toss_order_id: "dashpi_abc", status: "pending", amount: 258000, order_name: "DashPi 표준형 2개",
   product_name: "DashPi 표준형", unit_price: 129000, quantity: 2, recipient_name: "홍길동", phone: "010", address: "서울",
@@ -168,4 +171,11 @@ test("테스트 결제 문구가 체크아웃과 주문 화면에 있다", () =>
   render(<OrderList orders={[order()]} />);
   expect(screen.getByText(msg)).toBeTruthy();
   expect(screen.getByText("DashPi 표준형 2개")).toBeTruthy();
+});
+
+test("상품 오류 화면의 다시 시도는 서버 화면을 새로 받는다", () => {
+  render(<ProductError />);
+  expect(screen.getByRole("alert").textContent).toContain("상품을 불러오지 못했습니다");
+  fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+  expect(nav.refresh).toHaveBeenCalled();
 });

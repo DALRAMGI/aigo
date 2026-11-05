@@ -1,5 +1,6 @@
 import uuid
 from datetime import UTC, datetime
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
@@ -30,6 +31,27 @@ class ConfirmIn(BaseModel):
     amount: int
 
 
+class OrderOut(BaseModel):
+    id: int
+    toss_order_id: str
+    status: Literal["pending", "paid", "failed"]
+    amount: int
+    order_name: str
+    product_name: str
+    unit_price: int
+    quantity: int
+    recipient_name: str
+    phone: str
+    address: str
+    created_at: datetime
+    paid_at: datetime | None
+
+
+class OrderList(BaseModel):
+    items: list[OrderOut]
+    total: int
+
+
 def _out(o: Order) -> dict:
     return {
         "id": o.id, "toss_order_id": o.toss_order_id, "status": o.status.value, "amount": o.amount,
@@ -48,7 +70,7 @@ def _mine(db: Session, user: User, order_id: int, lock: bool = False) -> Order:
     return o
 
 
-@router.post("/orders", status_code=201)
+@router.post("/orders", status_code=201, response_model=OrderOut)
 def create_order(body: OrderIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
     p = db.scalar(select(Product).where(Product.slug == body.product_slug, Product.active.is_(True)))
     if not p:
@@ -66,7 +88,7 @@ def create_order(body: OrderIn, user: User = Depends(current_user), db: Session 
     return _out(o)
 
 
-@router.post("/orders/{order_id}/confirm")
+@router.post("/orders/{order_id}/confirm", response_model=OrderOut)
 def confirm_order(order_id: int, body: ConfirmIn, user: User = Depends(current_user),
                   db: Session = Depends(get_db), toss: TossClient = Depends(get_toss)):
     # 행 잠금을 토스 호출(타임아웃 30초) 동안 쥐어 같은 주문의 중복 승인을 직렬화한다.
@@ -107,7 +129,7 @@ def confirm_order(order_id: int, body: ConfirmIn, user: User = Depends(current_u
     return _out(o)
 
 
-@router.get("/orders")
+@router.get("/orders", response_model=OrderList)
 def list_orders(limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0),
                 user: User = Depends(current_user), db: Session = Depends(get_db)):
     mine = Order.user_id == user.id
@@ -115,6 +137,6 @@ def list_orders(limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=
     return {"items": [_out(o) for o in rows], "total": db.scalar(select(func.count()).where(mine).select_from(Order))}
 
 
-@router.get("/orders/{order_id}")
+@router.get("/orders/{order_id}", response_model=OrderOut)
 def get_order(order_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
     return _out(_mine(db, user, order_id))

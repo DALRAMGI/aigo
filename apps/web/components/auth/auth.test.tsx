@@ -381,3 +381,8 @@ test("sso-callback에서 세션 작업이 남아 있으면 안내를 보여 준�
   expect((await screen.findByRole("alert")).textContent).toMatch(/계정 설정/);
   expect(m.push).not.toHaveBeenCalled();
 });
+
+test("바깥 code를 모르면 안쪽 Clerk 오류 코드로 문구를 고른다", () => {
+  const error = { code: "api_response_error", errors: [{ code: "form_identifier_not_found" }] };
+  expect(clerkMessage(error)).toBe("가입된 이메일을 찾지 못했습니다.");
+});

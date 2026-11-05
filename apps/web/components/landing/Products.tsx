@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import type { Product } from "@/components/commerce/types";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -9,14 +10,6 @@ import { Reveal } from "@/components/ui/Reveal";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatWon } from "@/lib/format";
-
-type Product = {
-  slug: string;
-  name: string;
-  description: string;
-  price: number;
-  specs: Record<string, string>;
-};
 
 /** 상품 사진이 없어서 선으로 그린다. 후방 카메라가 있는 구성은 후방 유닛을 함께 그린다. */
 function DashCam({ rear = false }: { rear?: boolean }) {
@@ -68,7 +61,7 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
         {Object.entries(product.specs).map(([term, value]) => (
           <div key={term} className="grid grid-cols-[3.5rem_minmax(0,1fr)] gap-2 border-b border-line py-2">
             <dt className="hud pt-0.5">{term}</dt>
-            <dd className="text-ink">{value}</dd>
+            <dd className="text-ink">{String(value)}</dd>
           </div>
         ))}
       </dl>

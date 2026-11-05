@@ -56,6 +56,13 @@ class AnalysisList(BaseModel):
     total: int
 
 
+class UploadTicket(BaseModel):
+    id: int
+    upload_url: str
+    upload_headers: dict[str, str]
+    expires_at: datetime
+
+
 def _mine(db: Session, user: User, analysis_id: int, lock: bool = False) -> Analysis:
     q = select(Analysis).where(Analysis.id == analysis_id, Analysis.user_id == user.id,
                                     Analysis.deleted_at.is_(None))
@@ -87,7 +94,7 @@ def _out(a: Analysis, storage: Storage) -> dict:
     }
 
 
-@router.post("/analyses", status_code=201)
+@router.post("/analyses", status_code=201, response_model=UploadTicket)
 def create_analysis(body: AnalysisIn, user: User = Depends(current_user), db: Session = Depends(get_db),
                     storage: Storage = Depends(get_storage)):
     if not body.consent:

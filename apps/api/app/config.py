@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     s3_region: str = "auto"
     s3_access_key_id: str = ""
     s3_secret_access_key: str = ""
+    s3_addressing_style: str = "path"  # Railway Bucket은 virtual, 로컬 moto와 MinIO는 path
     clerk_secret_key: str = ""
     clerk_jwt_key: str = ""
     web_origin: str = "http://localhost:3000"

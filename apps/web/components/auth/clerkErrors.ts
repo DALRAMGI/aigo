@@ -31,7 +31,9 @@ export function clerkMessage(error: unknown): string {
   if (error instanceof Error && error.name === "ApiError") return error.message;
   // 새 훅은 ClerkError({code}), user.update 같은 리소스 메서드는 {errors: [{code}]}로 던진다.
   const e = error as { code?: string; errors?: { code?: string }[] } | null;
-  const code = e?.code ?? e?.errors?.[0]?.code;
-  if (code?.startsWith("protect_check")) return MESSAGES.protect_check_execution_failed;
-  return (code && MESSAGES[code]) || FALLBACK;
+  // 서버 응답 오류는 바깥 code가 api_response_error라서 안쪽 code까지 봐야 한다.
+  const codes = [e?.code, e?.errors?.[0]?.code];
+  if (codes.some((c) => c?.startsWith("protect_check"))) return MESSAGES.protect_check_execution_failed;
+  const known = codes.find((c) => c && MESSAGES[c]);
+  return known ? MESSAGES[known] : FALLBACK;
 }
