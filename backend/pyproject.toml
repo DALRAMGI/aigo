@@ -1,0 +1,18 @@
+[project]
+name = "dashpi-backend"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "fastapi",
+  "uvicorn[standard]",
+  "pydantic-settings",
+  "sqlalchemy>=2",
+  "psycopg[binary]",
+]
+
+[dependency-groups]
+dev = ["pytest", "httpx2"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
