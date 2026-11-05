@@ -61,7 +61,7 @@ function ProductCard({ product, index }: { product: Product; index: number }) {
         {Object.entries(product.specs).map(([term, value]) => (
           <div key={term} className="grid grid-cols-[3.5rem_minmax(0,1fr)] gap-2 border-b border-line py-2">
             <dt className="hud pt-0.5">{term}</dt>
-            <dd className="text-ink">{value}</dd>
+            <dd className="text-ink">{String(value)}</dd>
           </div>
         ))}
       </dl>

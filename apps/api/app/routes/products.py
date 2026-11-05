@@ -1,3 +1,5 @@
+from typing import Any
+
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy import func, select
@@ -15,8 +17,8 @@ class ProductOut(BaseModel):
     name: str
     description: str
     price: int
-    specs: dict[str, str]
-    image_url: str
+    specs: dict[str, Any]
+    image_url: str | None
 
 
 class ProductList(BaseModel):

@@ -362,10 +362,10 @@ export interface components {
             price: number;
             /** Specs */
             specs: {
-                [key: string]: string;
+                [key: string]: unknown;
             };
             /** Image Url */
-            image_url: string;
+            image_url: string | null;
         };
         /** Report */
         Report: {

@@ -1007,14 +1007,19 @@
             "title": "Price"
           },
           "specs": {
-            "additionalProperties": {
-              "type": "string"
-            },
+            "additionalProperties": true,
             "type": "object",
             "title": "Specs"
           },
           "image_url": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Image Url"
           }
         },
