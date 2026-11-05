@@ -13,6 +13,7 @@ from app.models import Order, OrderStatus, Product, User
 from app.toss import TossClient, TossError, get_toss
 
 router = APIRouter()
+_RETRY_MSG = "결제 확인에 실패했습니다. 잠시 뒤 다시 시도해 주세요."
 
 
 class OrderIn(BaseModel):
@@ -83,14 +84,24 @@ def confirm_order(order_id: int, body: ConfirmIn, user: User = Depends(current_u
         db.rollback()
         raise ApiError(409, "ORDER_NOT_PAYABLE", "결제할 수 없는 주문입니다.")
     try:
-        toss.confirm(body.payment_key, o.toss_order_id, o.amount, o.idempotency_key)
+        try:
+            payment = toss.confirm(body.payment_key, o.toss_order_id, o.amount, o.idempotency_key)
+        except TossError as e:
+            if e.code != "ALREADY_PROCESSED_PAYMENT":
+                raise
+            # 승인은 됐는데 응답을 놓친 재시도다. 토스에 실제 결제 상태를 물어 확인한다.
+            payment = toss.get_payment(body.payment_key)
     except TossError as e:
         if e.retryable:
             db.rollback()
-            raise ApiError(502, "PAYMENT_RETRY", "결제 확인에 실패했습니다. 잠시 뒤 다시 시도해 주세요.") from e
+            raise ApiError(502, "PAYMENT_RETRY", _RETRY_MSG) from e
         o.status = OrderStatus.failed
         db.commit()
         raise ApiError(402, "PAYMENT_REJECTED", e.message) from e
+    if not (payment.get("status") == "DONE" and payment.get("orderId") == o.toss_order_id
+            and payment.get("totalAmount") == o.amount):
+        db.rollback()
+        raise ApiError(502, "PAYMENT_RETRY", _RETRY_MSG)
     o.status, o.payment_key, o.paid_at = OrderStatus.paid, body.payment_key, datetime.now(UTC)
     db.commit()
     return _out(o)

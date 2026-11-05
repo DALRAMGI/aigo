@@ -13,12 +13,18 @@ class FakeToss:
     def __init__(self):
         self.calls: list[tuple] = []
         self.error = None  # TossError를 넣으면 다음 호출이 실패한다
+        self.payment = None  # 지정하면 confirm/get_payment의 응답 본문
+        self.lookups: list[str] = []
 
     def confirm(self, payment_key, order_id, amount, idempotency_key):
         self.calls.append((payment_key, order_id, amount, idempotency_key))
         if self.error:
             raise self.error
-        return {"status": "DONE"}
+        return self.payment or {"status": "DONE", "orderId": order_id, "totalAmount": amount}
+
+    def get_payment(self, payment_key):
+        self.lookups.append(payment_key)
+        return self.payment
 
 
 @pytest.fixture
@@ -166,3 +172,76 @@ def test_list_and_get_orders(client, order, product):
     assert client.get("/api/v1/orders/999999", headers=auth()).status_code == 404
     assert client.get("/api/v1/orders?limit=101", headers=auth()).status_code == 422
     assert client.get("/api/v1/orders").status_code == 401
+
+
+def _done(order, **kw):
+    return {"status": "DONE", "orderId": order["toss_order_id"], "totalAmount": order["amount"], **kw}
+
+
+def test_already_processed_then_lookup_done_marks_paid(client, order, fake_toss, db):
+    from app.toss import TossError
+
+    fake_toss.error = TossError("ALREADY_PROCESSED_PAYMENT", "이미 처리됨", True)
+    fake_toss.payment = _done(order)
+    r = confirm(client, order)
+    assert r.status_code == 200 and r.json()["status"] == "paid"
+    assert fake_toss.lookups == ["pk_1"] and db.get(Order, order["id"]).payment_key == "pk_1"
+
+
+@pytest.mark.parametrize("bad", [{"status": "CANCELED"}, {"orderId": "dashpi_other"}, {"totalAmount": 1}])
+def test_already_processed_lookup_mismatch_stays_pending(client, order, fake_toss, db, bad):
+    from app.toss import TossError
+
+    fake_toss.error = TossError("ALREADY_PROCESSED_PAYMENT", "이미 처리됨", True)
+    fake_toss.payment = _done(order, **bad)
+    r = confirm(client, order)
+    assert r.status_code == 502 and r.json()["code"] == "PAYMENT_RETRY"
+    assert db.get(Order, order["id"]).status == OrderStatus.pending
+
+
+@pytest.mark.parametrize("bad", [{"status": "READY"}, {"orderId": "dashpi_other"}, {"totalAmount": 1}])
+def test_confirm_response_mismatch_stays_pending(client, order, fake_toss, db, bad):
+    fake_toss.payment = _done(order, **bad)
+    r = confirm(client, order)
+    assert r.status_code == 502 and r.json()["code"] == "PAYMENT_RETRY"
+    assert db.get(Order, order["id"]).status == OrderStatus.pending
+
+
+@pytest.mark.parametrize("code", ["UNKNOWN", "SOME_NEW_CODE", "TOO_MANY_REQUESTS", "PROVIDER_ERROR"])
+def test_unknown_or_transient_code_stays_pending(client, order, fake_toss, db, code):
+    from app.toss import REJECTION_CODES, TossClient
+
+    assert code not in REJECTION_CODES
+    # 실제 분류 경로(_request)를 거치도록 HTTP 계층만 가짜로 바꾼다.
+    import httpx
+
+    def fake_request(method, url, **kw):
+        return httpx.Response(409 if code == "UNKNOWN" else 429, json={"code": code, "message": "m"},
+                              request=httpx.Request(method, url))
+
+    import app.toss as t
+    t_http, t.httpx.request = t.httpx.request, fake_request
+    try:
+        fake_toss.confirm = lambda *a: TossClient().confirm(*a)
+        r = confirm(client, order)
+    finally:
+        t.httpx.request = t_http
+    assert r.status_code == 502 and db.get(Order, order["id"]).status == OrderStatus.pending
+
+
+@pytest.mark.parametrize("code", ["REJECT_CARD_COMPANY", "PAY_PROCESS_CANCELED", "PAY_PROCESS_ABORTED"])
+def test_definitive_rejection_code_marks_failed(client, order, fake_toss, db, code):
+    import httpx
+
+    import app.toss as t
+    from app.toss import TossClient
+
+    t_http = t.httpx.request
+    t.httpx.request = lambda m, u, **kw: httpx.Response(400, json={"code": code, "message": "거절"},
+                                                         request=httpx.Request(m, u))
+    try:
+        fake_toss.confirm = lambda *a: TossClient().confirm(*a)
+        r = confirm(client, order)
+    finally:
+        t.httpx.request = t_http
+    assert r.status_code == 402 and db.get(Order, order["id"]).status == OrderStatus.failed
