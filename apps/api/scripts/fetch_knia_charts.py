@@ -13,7 +13,9 @@ import httpx
 
 URL = "https://accident.knia.or.kr/myaccident-content?chartNo={no}&chartType=1"
 OUT = Path(__file__).resolve().parent.parent / "data" / "fault_charts.json"
-DEFAULT = ["차43-2", "차43-3", "차43-1", "차41-1", "차42-2", "차51-1", "차16-1", "차44-1"]
+DEFAULT = ["차43-2", "차43-3", "차43-1", "차41-1", "차42-2", "차51-1", "차16-1", "차44-1",
+           "차1-1", "차2-2", "차2-6", "차7-1", "차15-1", "차16-2", "차16-3", "차19-1", "차20-1", "차21-1",
+           "차31-1", "차31-3", "차32-1", "차43-4", "차43-5", "차47-2"]
 
 
 def text(s: str) -> str:
@@ -33,8 +35,15 @@ def parse(no: str, page: str) -> dict:
     head = one(r'<h3 class="title">([^<]+)</h3>', page, "도표 번호")
     if text(head.group(1)) != no:
         raise ValueError(f"도표 번호 불일치: {text(head.group(1))}")
-    title = text(one(r'data-depth="3"[^>]*>([^<]+)</a>', page, "제목").group(1))
+    # 메뉴 깊이는 도표마다 3이나 4다. 가장 깊은 항목이 그 도표의 이름이고 그 위는 분류 이름이다.
+    titles = re.findall(r'data-depth="\d"[^>]*>([^<]+)</a>', page)
+    if not titles:
+        raise ValueError("제목 파싱 실패")
+    title = text(titles[-1])
     situation = text(one(r"<dt>사고 상황</dt>\s*<dd>(.*?)</dd>", page, "사고 상황").group(1))
+    # ponytail: 동시 진입, 선진입처럼 경우별 기본과실이 다른 도표(차12-1 등)는 첫 경우만 읽게 되므로 받지 않는다.
+    if len(set(re.findall(r'data-ratio-a="(\d+)"', page))) > 1:
+        raise ValueError("여러 경우로 나뉜 도표는 지원하지 않음")
     base_a = int(one(r'data-ratio-a="(\d+)"', page, "기본과실 A").group(1))
     base_b = int(one(r'data-ratio-b="(\d+)"', page, "기본과실 B").group(1))
     if base_a + base_b != 100:

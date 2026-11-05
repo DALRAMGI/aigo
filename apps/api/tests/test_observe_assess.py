@@ -6,11 +6,12 @@ import pytest
 
 from app.errors import PipelineError
 from app.fault import FaultTable, calculate
-from app.pipeline.assess import AssessOut, Cite, Pick, SeriousPick, assess
+from app.pipeline.assess import AssessOut, Cite, Pick, SeriousPick, assess, has_fault_number
 from app.pipeline.focus import Keyframe
 from app.pipeline.locate import Candidate
 from app.pipeline.observe import Fact, Observation, observe, outside_windows, recheck_time
 from app.pipeline.scan import TrackPoint
+from app.report import SeriousViolation
 from tests.fixtures.fake_llm import FakeLLM
 
 TABLE = FaultTable.load()
@@ -49,7 +50,7 @@ def test_none_returns_reason_only():
 
 def test_witness_has_no_fault():
     picked = out(applied=[Pick(id="b3", fact=1)], favorable=[Cite(fact=1, text="유리")],
-                 serious=[SeriousPick(item="신호위반", likelihood="high", fact=1)])
+                 serious=[SeriousPick(item="신호위반", likelihood="high", party="other", fact=1)])
     r, _ = run(obs(involvement="witness"), picked)
     assert r.involvement == "witness" and r.fault is None and r.fault_note is None
     assert r.summary and r.facts and r.collision_t == 12.0
@@ -132,17 +133,17 @@ def test_claim_without_evidence_time_is_removed():
 
 
 def test_drunk_driving_without_evidence_is_unknown():
-    r, _ = run(obs(), out(serious=[SeriousPick(item="음주운전", likelihood="high", fact=None),
-                                   SeriousPick(item="신호위반", likelihood="medium", fact=None),
-                                   SeriousPick(item="중앙선 침범", likelihood="high", fact=1)]))
+    r, _ = run(obs(), out(serious=[SeriousPick(item="음주운전", likelihood="high", party="me", fact=None),
+                                   SeriousPick(item="신호위반", likelihood="medium", party="other", fact=None),
+                                   SeriousPick(item="중앙선 침범", likelihood="high", party="other", fact=1)]))
     got = {s.item: (s.likelihood, s.evidence.t if s.evidence else None) for s in r.serious_violations}
     assert got == {"음주운전": ("unknown", None), "신호위반": ("unknown", None), "중앙선 침범": ("high", 12.0)}
 
 
 def test_drunk_driving_cannot_be_seen_even_with_a_cited_fact():
-    r, _ = run(obs(), out(serious=[SeriousPick(item="음주운전", likelihood="high", fact=1),
-                                   SeriousPick(item="무면허운전", likelihood="low", fact=1),
-                                   SeriousPick(item="제한속도 20km/h 초과", likelihood="high", fact=1)]))
+    r, _ = run(obs(), out(serious=[SeriousPick(item="음주운전", likelihood="high", party="me", fact=1),
+                                   SeriousPick(item="무면허운전", likelihood="low", party="me", fact=1),
+                                   SeriousPick(item="제한속도 20km/h 초과", likelihood="high", party="other", fact=1)]))
     assert {s.likelihood for s in r.serious_violations} == {"unknown"}
     assert all(s.evidence is None for s in r.serious_violations)
 
@@ -319,3 +320,28 @@ def test_recheck_time_rules():
     assert recheck_time(obs(collision_t=None, suspect_t=None), c, DURATION) is None
     assert recheck_time(obs(collision_t=None, suspect_t=99.0), c, DURATION) is None
     assert recheck_time(obs(collision_t=99.0), c, DURATION) is None  # 영상 밖 시각으로 프레임을 뽑지 않는다.
+
+
+def test_serious_violation_states_whose_it_is():
+    r, _ = run(obs(), out(serious=[SeriousPick(item="중앙선 침범", likelihood="high", party="other", fact=1)]))
+    assert r.serious_violations[0].party == "other"
+
+
+def test_serious_violation_without_evidence_has_unknown_party():
+    r, _ = run(obs(), out(serious=[SeriousPick(item="중앙선 침범", likelihood="high", party="me", fact=None),
+                                   SeriousPick(item="음주운전", likelihood="high", party="me", fact=1)]))
+    assert {s.party for s in r.serious_violations} == {"unknown"}
+
+
+def test_stored_report_without_party_still_loads():
+    assert SeriousViolation(item="신호위반", likelihood="low", evidence=None).party == "unknown"
+
+
+@pytest.mark.parametrize("text", ["14:07에 충돌했습니다", "오후 2:30 사고", "영상 표시 시각 09:05:33", "0:14 지점"])
+def test_clock_times_are_not_fault_numbers(text):
+    assert not has_fault_number(text)
+
+
+@pytest.mark.parametrize("text", ["과실 70:30입니다", "7:3으로 보입니다", "3 : 7", "100:0", "내 과실 20%", "20 : 80", "45:55"])
+def test_fault_numbers_are_still_rejected(text):
+    assert has_fault_number(text)

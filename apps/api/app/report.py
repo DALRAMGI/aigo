@@ -33,6 +33,7 @@ class SeriousViolation(BaseModel):
     item: str  # 12대 중과실 항목
     likelihood: Literal["high", "medium", "low", "unknown"]
     evidence: Evidence | None
+    party: Literal["me", "other", "unknown"] = "unknown"  # 누구의 위반인지. 이 칸이 없던 저장 레포트도 읽힌다.
 
 
 class Report(BaseModel):
