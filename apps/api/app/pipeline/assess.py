@@ -14,12 +14,22 @@ NO_ACCIDENT = "영상에서 사고를 확인하지 못했습니다."
 NO_EVIDENCE = "영상에서 근거 시각이 있는 사실을 확인하지 못했습니다."
 NO_CHART = "기준 도표를 찾지 못했습니다."
 NO_COLLISION = "영상에서 충돌 순간을 확인하지 못했습니다."
-FAULT_NUMBER = re.compile(r"\d+\s*%|\d+\s*:\s*\d+")  # 과실 숫자는 코드만 낸다.
+PERCENT = re.compile(r"\d+\s*%")
+PAIR = re.compile(r"(\d+)\s*:\s*(\d+)")
 SeriousItem = Literal[
     "신호위반", "중앙선 침범", "제한속도 20km/h 초과", "앞지르기·끼어들기 위반", "철길건널목 통과 위반", "횡단보도 보행자 보호 위반",
     "무면허운전", "음주운전", "보도 침범", "승객 추락 방지 위반", "어린이보호구역 위반", "화물 고정 위반",
 ]
 UNSEEABLE = ("무면허운전", "음주운전", "제한속도 20km/h 초과")  # 영상으로 확인할 수 없어 근거가 있어도 unknown이다.
+
+
+
+def has_fault_number(text: str) -> bool:
+    """과실 숫자는 코드만 낸다. 합이 100인 두 수는 시각이 될 수 없어서(시 23 이하, 분 59 이하) 14:07 같은 시각만 통과한다."""
+    if PERCENT.search(text):
+        return True
+    return any(not (len(m) == 2 and int(h) < 24 and int(m) < 60) for h, m in PAIR.findall(text))
+
 
 PROMPT = """너는 교통사고 관찰 기록을 기준 도표에 맞추는 분석가다. 입력은 관찰 기록과 후보 도표뿐이다. 한국어로 쓴다.
 
@@ -35,7 +45,7 @@ PROMPT = """너는 교통사고 관찰 기록을 기준 도표에 맞추는 분�
 - me: 고른 도표에서 촬영 차가 A인지 B인지 적는다. 도표를 고르지 않으면 null이다.
 - applied: 사실이 직접 보여 주는 수정요소 id와 사실 번호다.
 - unknown: 결과에 영향을 줄 수 있지만 영상으로 판단할 수 없는 수정요소 id다. 사실이 해당 없음을 보여 주면 적지 않는다.
-- serious: 12대 중과실 중 이 사고와 관련 있어 보이는 항목만 적는다. likelihood high는 그 사실이 위반 자체를 직접 보여 줄 때만 쓴다. 가까이 있었다, 접근했다 정도면 low나 unknown이다. 음주, 무면허, 속도는 영상으로 알 수 없으니 unknown이다.
+- serious: 12대 중과실 중 이 사고와 관련 있어 보이는 항목만 적는다. likelihood high는 그 사실이 위반 자체를 직접 보여 줄 때만 쓴다. 가까이 있었다, 접근했다 정도면 low나 unknown이다. 음주, 무면허, 속도는 영상으로 알 수 없으니 unknown이다. party는 그 위반을 한 쪽이다. 촬영 차는 me, 상대는 other, 사실로 정할 수 없으면 unknown이다.
 - severity, severity_fact: 사실에 보이는 파손과 충격으로 고르고 그 사실 번호를 적는다. 그런 사실이 없으면 둘 다 null이다.
 - timeline: 사고 흐름을 보여 주는 사실 번호를 시간순으로 적는다.
 - favorable, unfavorable: 촬영 차 운전자에게 유리하거나 불리한 점이다.
@@ -56,6 +66,7 @@ class Cite(BaseModel):
 class SeriousPick(BaseModel):
     item: SeriousItem
     likelihood: Literal["high", "medium", "low", "unknown"]
+    party: Literal["me", "other", "unknown"]
     fact: int | None
 
 
@@ -136,8 +147,8 @@ def assess(observation: Observation, keyframes: list[Keyframe], table: FaultTabl
     def check(out: AssessOut) -> None:
         texts = [out.accident_type or "", out.summary, *out.actions_now, *out.actions_later,
                  *(c.text for c in out.favorable + out.unfavorable)]
-        if any(FAULT_NUMBER.search(t) for t in texts):
-            raise InvalidOutput("글에 과실 비율이나 퍼센트, 대비 숫자를 쓰지 마라. 시각도 초 단위로만 적어라.")
+        if any(has_fault_number(t) for t in texts):
+            raise InvalidOutput("글에 과실 비율이나 퍼센트, 대비 숫자를 쓰지 마라.")
         if not party or out.chart_id is None:
             return
         if out.chart_id not in {c.id for c in charts}:
@@ -164,7 +175,8 @@ def assess(observation: Observation, keyframes: list[Keyframe], table: FaultTabl
 
     def serious(p: SeriousPick) -> SeriousViolation:
         e = None if p.item in UNSEEABLE else cite(p.fact)
-        return SeriousViolation(item=p.item, likelihood=p.likelihood if e else "unknown", evidence=e)
+        return SeriousViolation(item=p.item, likelihood=p.likelihood if e else "unknown", evidence=e,
+                                party=p.party if e else "unknown")
 
     supported = party and out.chart_id is not None and any([cite(i) for i in out.chart_facts])
     fault = _fault(table.get(out.chart_id), out, cite) if supported else None

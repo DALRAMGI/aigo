@@ -16,7 +16,7 @@ from app.errors import PipelineError
 log = logging.getLogger("llm")
 T = TypeVar("T", bound=BaseModel)
 
-PROMPT_VERSION = "2026-11-06.1"  # 프롬프트를 바꾸면 올리고 평가 세트를 다시 돌린다.
+PROMPT_VERSION = "2026-11-06.2"  # 프롬프트를 바꾸면 올리고 평가 세트를 다시 돌린다.
 JPEG_QUALITY = 85
 LONG_EDGE = 1280
 REQUEST_TIMEOUT_S = 180
