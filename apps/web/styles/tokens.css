@@ -1,5 +1,5 @@
 /* 토큰. 색은 light-dark()로 한 번만 적고, 테마는 color-scheme이 고른다.
-   기본은 OS 설정이다. data-theme는 /_design에서 두 테마를 나란히 보려고 쓴다.
+   기본은 OS 설정이다. html의 data-theme는 테마 버튼이 정하고, /_design은 두 테마를 나란히 보려고 쓴다.
    lightningcss가 light-dark()를 변수로 풀어내므로 [data-theme]에도 같은 값을 다시 계산하게 둔다. */
 
 :root,

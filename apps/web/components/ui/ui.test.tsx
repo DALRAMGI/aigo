@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { Badge } from "./Badge";
 import { Button, buttonClass } from "./Button";
@@ -154,6 +154,17 @@ test("Nav는 현재 경로를 표시한다", () => {
   render(<Nav />);
 
   expect(screen.getAllByRole("link", { name: "내 분석" })[0].getAttribute("aria-current")).toBe("page");
+});
+
+test("테마 버튼은 html의 data-theme를 바꾸고 저장한다", () => {
+  document.documentElement.dataset.theme = "light";
+  render(<Nav />);
+  fireEvent.click(screen.getByRole("button", { name: "다크 모드로 전환" }));
+  expect(document.documentElement.dataset.theme).toBe("dark");
+  expect(localStorage.getItem("theme")).toBe("dark");
+  expect(screen.getByRole("button", { name: "라이트 모드로 전환" })).toBeTruthy();
+  delete document.documentElement.dataset.theme;
+  localStorage.clear();
 });
 
 test("Nav 워드마크는 서비스 이름 AIGO다", () => {

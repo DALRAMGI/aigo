@@ -107,8 +107,8 @@ test("레포트 예시는 예시임을 밝히고 고정 안내를 싣는다", as
   await expect(report).toContainText("예시");
   await expect(report).toContainText("영상 기반 AI 추정이며 법적 판단이 아닙니다");
   await expect(page.locator("#hero")).toContainText("예시");
-  // 영상과 프레임은 쓰지 않는다.
-  await expect(page.locator("main img, main video")).toHaveCount(0);
+  // 사고 영상과 프레임은 쓰지 않는다. 사진은 상품 영역에만 있다.
+  await expect(page.locator("main video, #hero img, #report img")).toHaveCount(0);
 });
 
 test("360px에서 가로 스크롤이 없다", async ({ page }) => {

@@ -10,9 +10,15 @@ export const metadata: Metadata = {
   description: "사고를 판정하는 AI가 아니라 사고 대응력을 높이는 AI. AIGO의 사고 영상 분석과 DashPi 블랙박스.",
 };
 
+// 첫 그림 전에 저장된 테마를 적용해 화면이 깜빡이지 않게 한다.
+const THEME_SCRIPT = `try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="ko" className={GeistMono.variable}>
+    <html lang="ko" className={GeistMono.variable} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body>
         <ClerkProvider signInUrl="/login" signUpUrl="/signup">
           {children}
