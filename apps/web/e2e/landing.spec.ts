@@ -84,6 +84,22 @@ test("상품 API에 연결하지 못해도 페이지가 렌더링된다", async 
   await expect(page.locator("#products").getByRole("alert")).toBeVisible();
 });
 
+test("상품 API가 200이어도 items가 없으면 실패로 보여 준다", async ({ page }) => {
+  await page.route("**/api/v1/products*", (route) => route.fulfill({ json: {} }));
+  await page.goto("/");
+  await expect(page.locator("#products").getByRole("alert")).toContainText("상품 정보를 불러오지 못했습니다");
+  await expect(page.locator("h1")).toBeVisible();
+});
+
+test("서비스는 AIGO, 상품은 DashPi로 표시한다", async ({ page }) => {
+  await mockProducts(page);
+  await page.goto("/");
+  await expect(page).toHaveTitle(/AIGO/);
+  await expect(page.getByRole("navigation", { name: "주 메뉴" }).getByRole("link", { name: "AIGO" })).toBeVisible();
+  await expect(page.locator("footer")).toContainText("AIGO는 캡스톤 가상 서비스입니다");
+  await expect(page.locator("footer")).not.toContainText("DashPi");
+});
+
 test("레포트 예시는 예시임을 밝히고 고정 안내를 싣는다", async ({ page }) => {
   await mockProducts(page);
   await page.goto("/");

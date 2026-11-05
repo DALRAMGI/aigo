@@ -21,7 +21,6 @@
   --font-mono: var(--font-geist-mono), "Pretendard Variable", ui-monospace, "SFMono-Regular", Menlo, monospace;
 
   --radius-app: var(--radius);
-  --ease-out: var(--ease-out);
 }
 
 @layer base {

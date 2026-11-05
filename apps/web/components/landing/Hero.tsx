@@ -104,7 +104,7 @@ function Timeline() {
   const collision = SAMPLE_REPORT.collision_t;
 
   return (
-    <div className="px-5 pt-8 pb-3" aria-label="근거 시각 타임라인">
+    <div role="group" className="px-5 pt-8 pb-3" aria-label="근거 시각 타임라인">
       <div className="scene-rail relative h-5" style={{ "--collision": pct(collision) } as React.CSSProperties}>
         {SAMPLE_REPORT.timeline.map(({ t }) => (
           <span
@@ -185,7 +185,7 @@ export function Hero() {
           <div className="relative overflow-hidden">
             <Scene />
             <figcaption className="hud absolute top-0 left-0 bg-invert-bg px-3 py-2 text-invert-fg">
-              예시 <span className="opacity-70">/ 코드로 그린 장면</span>
+              예시
             </figcaption>
           </div>
           <Timeline />

@@ -87,7 +87,9 @@ export function Products() {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/products`, { signal });
       if (!res.ok) throw new Error(String(res.status));
-      setProducts((await res.json()).items);
+      const { items } = await res.json();
+      if (!Array.isArray(items)) throw new Error("items 없음");
+      setProducts(items);
     } catch {
       if (!signal?.aborted) setFailed(true);
     }
