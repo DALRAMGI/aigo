@@ -50,7 +50,8 @@ def _out(a: Analysis, storage: Storage) -> dict:
         "report": a.report if done else None,  # ponytail: Task 10에서 타입 있는 Report로 교체
         "playback_url": storage.presign_get(a.playback_key) if done and a.playback_key else None,
         "overlay_url": storage.presign_get(f"analyses/{a.id}/overlay.json") if done else None,
-        "error": ({"code": a.error_code or "ANALYSIS_FAILED", "message": "분석에 실패했습니다. 영상을 다시 올려 주세요."}
+        "error": ({"code": a.error_code or "ANALYSIS_FAILED", "message": (a.progress or {}).get("error", {}).get("message")
+                                                        or "분석에 실패했습니다. 영상을 다시 올려 주세요."}
                   if a.status == AnalysisStatus.failed else None),
         "created_at": a.created_at,
     }
