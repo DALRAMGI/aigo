@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "DashPi API",
+    "title": "AIGO API",
     "version": "0.1.0"
   },
   "paths": {
@@ -202,7 +202,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisList"
+                }
               }
             }
           },
@@ -239,7 +241,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisOut"
+                }
               }
             }
           },
@@ -276,7 +280,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisOut"
+                }
               }
             }
           },
@@ -495,6 +501,24 @@
   },
   "components": {
     "schemas": {
+      "AnalysisError": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "AnalysisError"
+      },
       "AnalysisIn": {
         "properties": {
           "filename": {
@@ -527,6 +551,117 @@
         ],
         "title": "AnalysisIn"
       },
+      "AnalysisList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AnalysisOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "AnalysisList"
+      },
+      "AnalysisOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "progress": {
+            "items": {
+              "$ref": "#/components/schemas/StageOut"
+            },
+            "type": "array",
+            "title": "Progress"
+          },
+          "report": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Report"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "playback_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Playback Url"
+          },
+          "overlay_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overlay Url"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalysisError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "stage",
+          "progress",
+          "report",
+          "playback_url",
+          "overlay_url",
+          "error",
+          "created_at"
+        ],
+        "title": "AnalysisOut"
+      },
       "ConfirmIn": {
         "properties": {
           "payment_key": {
@@ -546,6 +681,109 @@
           "amount"
         ],
         "title": "ConfirmIn"
+      },
+      "Evidence": {
+        "properties": {
+          "t": {
+            "type": "number",
+            "title": "T"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "t",
+          "text"
+        ],
+        "title": "Evidence"
+      },
+      "FaultAssessment": {
+        "properties": {
+          "chart_id": {
+            "type": "string",
+            "title": "Chart Id"
+          },
+          "chart_title": {
+            "type": "string",
+            "title": "Chart Title"
+          },
+          "source_url": {
+            "type": "string",
+            "title": "Source Url"
+          },
+          "me": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B"
+            ],
+            "title": "Me"
+          },
+          "base": {
+            "type": "integer",
+            "title": "Base"
+          },
+          "my_min": {
+            "type": "integer",
+            "title": "My Min"
+          },
+          "my_max": {
+            "type": "integer",
+            "title": "My Max"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/FaultStep"
+            },
+            "type": "array",
+            "title": "Steps"
+          },
+          "unknown": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Unknown"
+          }
+        },
+        "type": "object",
+        "required": [
+          "chart_id",
+          "chart_title",
+          "source_url",
+          "me",
+          "base",
+          "my_min",
+          "my_max",
+          "steps",
+          "unknown"
+        ],
+        "title": "FaultAssessment"
+      },
+      "FaultStep": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "delta": {
+            "type": "integer",
+            "title": "Delta"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/Evidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "delta",
+          "evidence"
+        ],
+        "title": "FaultStep"
       },
       "HTTPValidationError": {
         "properties": {
@@ -606,6 +844,264 @@
           "address"
         ],
         "title": "OrderIn"
+      },
+      "Report": {
+        "properties": {
+          "involvement": {
+            "type": "string",
+            "enum": [
+              "party",
+              "witness",
+              "none"
+            ],
+            "title": "Involvement"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "accident_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accident Type"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "collision_t": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collision T"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ],
+            "title": "Confidence"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity"
+          },
+          "timeline": {
+            "items": {
+              "$ref": "#/components/schemas/Evidence"
+            },
+            "type": "array",
+            "title": "Timeline"
+          },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/Evidence"
+            },
+            "type": "array",
+            "title": "Facts"
+          },
+          "unseen": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Unseen"
+          },
+          "fault": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FaultAssessment"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fault_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fault Note"
+          },
+          "serious_violations": {
+            "items": {
+              "$ref": "#/components/schemas/SeriousViolation"
+            },
+            "type": "array",
+            "title": "Serious Violations"
+          },
+          "favorable": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Favorable"
+          },
+          "unfavorable": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Unfavorable"
+          },
+          "actions_now": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Actions Now"
+          },
+          "actions_later": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Actions Later"
+          }
+        },
+        "type": "object",
+        "required": [
+          "involvement",
+          "reason",
+          "accident_type",
+          "summary",
+          "collision_t",
+          "confidence",
+          "severity",
+          "timeline",
+          "facts",
+          "unseen",
+          "fault",
+          "fault_note",
+          "serious_violations",
+          "favorable",
+          "unfavorable",
+          "actions_now",
+          "actions_later"
+        ],
+        "title": "Report"
+      },
+      "SeriousViolation": {
+        "properties": {
+          "item": {
+            "type": "string",
+            "title": "Item"
+          },
+          "likelihood": {
+            "type": "string",
+            "enum": [
+              "high",
+              "medium",
+              "low",
+              "unknown"
+            ],
+            "title": "Likelihood"
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Evidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "item",
+          "likelihood",
+          "evidence"
+        ],
+        "title": "SeriousViolation"
+      },
+      "StageOut": {
+        "properties": {
+          "stage": {
+            "type": "string",
+            "title": "Stage"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "stage",
+          "status",
+          "detail",
+          "at"
+        ],
+        "title": "StageOut"
       },
       "ValidationError": {
         "properties": {

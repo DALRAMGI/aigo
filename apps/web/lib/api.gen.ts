@@ -182,6 +182,13 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AnalysisError */
+        AnalysisError: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+        };
         /** AnalysisIn */
         AnalysisIn: {
             /** Filename */
@@ -196,12 +203,80 @@ export interface components {
             /** Consent */
             consent: boolean;
         };
+        /** AnalysisList */
+        AnalysisList: {
+            /** Items */
+            items: components["schemas"]["AnalysisOut"][];
+            /** Total */
+            total: number;
+        };
+        /** AnalysisOut */
+        AnalysisOut: {
+            /** Id */
+            id: number;
+            /** Status */
+            status: string;
+            /** Stage */
+            stage: string | null;
+            /** Progress */
+            progress: components["schemas"]["StageOut"][];
+            report: components["schemas"]["Report"] | null;
+            /** Playback Url */
+            playback_url: string | null;
+            /** Overlay Url */
+            overlay_url: string | null;
+            error: components["schemas"]["AnalysisError"] | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** ConfirmIn */
         ConfirmIn: {
             /** Payment Key */
             payment_key: string;
             /** Amount */
             amount: number;
+        };
+        /** Evidence */
+        Evidence: {
+            /** T */
+            t: number;
+            /** Text */
+            text: string;
+        };
+        /** FaultAssessment */
+        FaultAssessment: {
+            /** Chart Id */
+            chart_id: string;
+            /** Chart Title */
+            chart_title: string;
+            /** Source Url */
+            source_url: string;
+            /**
+             * Me
+             * @enum {string}
+             */
+            me: "A" | "B";
+            /** Base */
+            base: number;
+            /** My Min */
+            my_min: number;
+            /** My Max */
+            my_max: number;
+            /** Steps */
+            steps: components["schemas"]["FaultStep"][];
+            /** Unknown */
+            unknown: string[];
+        };
+        /** FaultStep */
+        FaultStep: {
+            /** Label */
+            label: string;
+            /** Delta */
+            delta: number;
+            evidence: components["schemas"]["Evidence"];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -225,6 +300,72 @@ export interface components {
              * @default
              */
             address_detail: string;
+        };
+        /** Report */
+        Report: {
+            /**
+             * Involvement
+             * @enum {string}
+             */
+            involvement: "party" | "witness" | "none";
+            /** Reason */
+            reason: string | null;
+            /** Accident Type */
+            accident_type: string | null;
+            /** Summary */
+            summary: string | null;
+            /** Collision T */
+            collision_t: number | null;
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "high" | "medium" | "low";
+            /** Severity */
+            severity: ("low" | "medium" | "high") | null;
+            /** Timeline */
+            timeline: components["schemas"]["Evidence"][];
+            /** Facts */
+            facts: components["schemas"]["Evidence"][];
+            /** Unseen */
+            unseen: string[];
+            fault: components["schemas"]["FaultAssessment"] | null;
+            /** Fault Note */
+            fault_note: string | null;
+            /** Serious Violations */
+            serious_violations: components["schemas"]["SeriousViolation"][];
+            /** Favorable */
+            favorable: string[];
+            /** Unfavorable */
+            unfavorable: string[];
+            /** Actions Now */
+            actions_now: string[];
+            /** Actions Later */
+            actions_later: string[];
+        };
+        /** SeriousViolation */
+        SeriousViolation: {
+            /** Item */
+            item: string;
+            /**
+             * Likelihood
+             * @enum {string}
+             */
+            likelihood: "high" | "medium" | "low" | "unknown";
+            evidence: components["schemas"]["Evidence"] | null;
+        };
+        /** StageOut */
+        StageOut: {
+            /** Stage */
+            stage: string;
+            /** Status */
+            status: string;
+            /** Detail */
+            detail: {
+                [key: string]: unknown;
+            } | null;
+            /** At */
+            at: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -387,7 +528,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AnalysisList"];
                 };
             };
             /** @description Validation Error */
@@ -451,7 +592,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AnalysisOut"];
                 };
             };
             /** @description Validation Error */
@@ -482,7 +623,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AnalysisOut"];
                 };
             };
             /** @description Validation Error */
