@@ -283,6 +283,29 @@ test("없는 분석은 폴링을 멈추고 이유를 보여 준다", async () =>
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });
 
+test.each([401, 429])("%i 응답은 멈추지 않고 폴링을 이어 간다", async (status) => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  fetchMock
+    .mockResolvedValueOnce(json(200, running(1)))
+    .mockResolvedValueOnce(json(status, { code: "X", message: "잠시 뒤 다시" }))
+    .mockResolvedValueOnce(json(status, { code: "X", message: "잠시 뒤 다시" }))
+    .mockImplementation(async () => json(200, running(2)));
+  render(<AnalysisDetail id="12" />);
+  await tick();
+  await tick();
+  await tick();
+  expect(screen.queryByText("잠시 뒤 다시")).toBeNull();
+  expect(screen.getByText("객체 추적")).toBeTruthy();
+  expect(fetchMock.mock.calls.length).toBeGreaterThan(status === 401 ? 3 : 2);
+});
+
+test("done인데 레포트가 없으면 실패 안내를 보여 준다", async () => {
+  fetchMock.mockImplementation(async () => json(200, { ...finished(PARTY), report: null }));
+  render(<AnalysisDetail id="12" />);
+  expect(await screen.findByText("레포트를 불러오지 못했습니다")).toBeTruthy();
+  expect(screen.queryByText("객체 추적")).toBeNull();
+});
+
 test("근거 시각을 누르면 영상이 그 시각으로 이동한다", () => {
   fetchMock.mockResolvedValue(json(200, OVERLAY));
   const { container } = render(<ReportView analysis={finished(PARTY)} />);
@@ -381,6 +404,55 @@ test("삭제 후 목록으로 이동한다", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "분석 삭제" }));
   await waitFor(() => expect(router.push).toHaveBeenCalledWith("/analyses"));
   expect(calls("DELETE", "/api/v1/analyses/12")).toHaveLength(1);
+});
+
+test("삭제를 시작하면 폴링을 멈춘다", async () => {
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  let finish = (_: Response) => {};
+  fetchMock.mockImplementation((_, init) =>
+    init?.method === "DELETE" ? new Promise((r) => (finish = r)) : Promise.resolve(json(200, running(1))),
+  );
+  render(<AnalysisDetail id="12" />);
+  await tick(0);
+  fireEvent.click(screen.getByRole("button", { name: "분석 삭제" }));
+  const polled = calls("GET", "/api/v1/analyses/12").length;
+  await tick();
+  await tick();
+  expect(calls("GET", "/api/v1/analyses/12")).toHaveLength(polled);
+  await act(async () => finish(new Response(null, { status: 204 })));
+  expect(router.push).toHaveBeenCalledWith("/analyses");
+});
+
+test("삭제에 실패하면 레포트를 그대로 두고 오류를 보여 준다", async () => {
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  fetchMock.mockImplementation(async (u, init) => {
+    if (init?.method === "DELETE") return json(500, { code: "X", message: "삭제에 실패했습니다." });
+    return json(200, String(u).endsWith("overlay.json") ? OVERLAY : finished(PARTY));
+  });
+  render(<AnalysisDetail id="12" />);
+  fireEvent.click(await screen.findByRole("button", { name: "분석 삭제" }));
+  expect(await screen.findByText("삭제에 실패했습니다.")).toBeTruthy();
+  expect(screen.getByText(DISCLAIMER)).toBeTruthy();
+  expect(screen.getByRole("button", { name: "분석 삭제" })).toBeTruthy();
+  expect(router.push).not.toHaveBeenCalled();
+});
+
+test("진행 중 삭제에 실패하면 폴링을 다시 시작한다", async () => {
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  fetchMock.mockImplementation(async (_, init) =>
+    init?.method === "DELETE" ? json(500, { code: "X", message: "삭제에 실패했습니다." }) : json(200, running(1)),
+  );
+  render(<AnalysisDetail id="12" />);
+  await tick(0);
+  fireEvent.click(screen.getByRole("button", { name: "분석 삭제" }));
+  await tick(0);
+  expect(screen.getByText("삭제에 실패했습니다.")).toBeTruthy();
+  const polled = calls("GET", "/api/v1/analyses/12").length;
+  await tick();
+  await tick();
+  expect(calls("GET", "/api/v1/analyses/12").length).toBeGreaterThan(polled);
 });
 
 test("삭제를 취소하면 지우지 않는다", async () => {

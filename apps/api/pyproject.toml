@@ -19,6 +19,7 @@ dependencies = [
   "torchvision",
   "ultralytics",
   "openai>=3.46.0",
+  "lap>=0.5.14",
 ]
 
 [dependency-groups]

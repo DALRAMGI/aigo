@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { ProductBuy, ProductVisual } from "@/components/commerce/ProductBuy";
+import { ProductError } from "@/components/commerce/ProductError";
 import type { Product } from "@/components/commerce/types";
 import { Footer } from "@/components/ui/Footer";
 import { Nav } from "@/components/ui/Nav";
@@ -10,9 +11,19 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const { slug } = await params;
   const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/products/${encodeURIComponent(slug)}`, {
     next: { revalidate: 60 },
-  });
-  if (res.status === 404) notFound();
-  if (!res.ok) throw new Error("상품을 불러오지 못했습니다.");
+  }).catch(() => null);
+  if (res?.status === 404) notFound();
+  if (!res?.ok) {
+    return (
+      <>
+        <Nav />
+        <main className="frame">
+          <ProductError />
+        </main>
+        <Footer />
+      </>
+    );
+  }
   const p: Product = await res.json();
 
   return (

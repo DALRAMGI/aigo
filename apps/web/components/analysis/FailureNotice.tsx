@@ -11,7 +11,7 @@ export function FailureNotice({ code, message }: { code: string; message: string
     <Notice tone="danger">
       <strong className="block font-bold">{repeated ? message : title}</strong>
       {!repeated && <span className="block">{message}</span>}
-      {known && <span className="block text-muted">{known.hint}</span>}
+      {known?.hint && <span className="block text-muted">{known.hint}</span>}
     </Notice>
   );
 }

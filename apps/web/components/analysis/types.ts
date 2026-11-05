@@ -6,14 +6,7 @@ export type Report = Schemas["Report"];
 export type Evidence = Schemas["Evidence"];
 export type FaultAssessment = Schemas["FaultAssessment"];
 export type SeriousViolation = Schemas["SeriousViolation"];
-
-/** POST /analyses는 응답 모델이 없어 api.gen.ts에 타입이 생기지 않는다. */
-export type UploadTicket = {
-  id: number;
-  upload_url: string;
-  upload_headers: Record<string, string>;
-  expires_at: string;
-};
+export type UploadTicket = Schemas["UploadTicket"];
 
 export type OverlayBox = { id: number; cls: string; box: number[] }; // box: 0~1로 정규화한 [x1, y1, x2, y2]
 export type OverlayFrame = { t: number; boxes: OverlayBox[] };
@@ -43,4 +36,5 @@ export const FAILURES: Record<string, { title: string; hint: string; final?: boo
   MODEL_TIMEOUT: MODEL_FAILURE,
   MODEL_FAILED: MODEL_FAILURE,
   MODEL_INVALID: MODEL_FAILURE,
+  REPORT_MISSING: { title: "레포트를 불러오지 못했습니다", hint: "" },
 };

@@ -301,6 +301,72 @@ export interface components {
              */
             address_detail: string;
         };
+        /** OrderList */
+        OrderList: {
+            /** Items */
+            items: components["schemas"]["OrderOut"][];
+            /** Total */
+            total: number;
+        };
+        /** OrderOut */
+        OrderOut: {
+            /** Id */
+            id: number;
+            /** Toss Order Id */
+            toss_order_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "paid" | "failed";
+            /** Amount */
+            amount: number;
+            /** Order Name */
+            order_name: string;
+            /** Product Name */
+            product_name: string;
+            /** Unit Price */
+            unit_price: number;
+            /** Quantity */
+            quantity: number;
+            /** Recipient Name */
+            recipient_name: string;
+            /** Phone */
+            phone: string;
+            /** Address */
+            address: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Paid At */
+            paid_at: string | null;
+        };
+        /** ProductList */
+        ProductList: {
+            /** Items */
+            items: components["schemas"]["ProductOut"][];
+            /** Total */
+            total: number;
+        };
+        /** ProductOut */
+        ProductOut: {
+            /** Slug */
+            slug: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Price */
+            price: number;
+            /** Specs */
+            specs: {
+                [key: string]: string;
+            };
+            /** Image Url */
+            image_url: string;
+        };
         /** Report */
         Report: {
             /**
@@ -366,6 +432,22 @@ export interface components {
             } | null;
             /** At */
             at: string | null;
+        };
+        /** UploadTicket */
+        UploadTicket: {
+            /** Id */
+            id: number;
+            /** Upload Url */
+            upload_url: string;
+            /** Upload Headers */
+            upload_headers: {
+                [key: string]: string;
+            };
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -465,7 +547,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ProductList"];
                 };
             };
             /** @description Validation Error */
@@ -496,7 +578,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ProductOut"];
                 };
             };
             /** @description Validation Error */
@@ -561,7 +643,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["UploadTicket"];
                 };
             };
             /** @description Validation Error */
@@ -684,7 +766,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["OrderList"];
                 };
             };
             /** @description Validation Error */
@@ -717,7 +799,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["OrderOut"];
                 };
             };
             /** @description Validation Error */
@@ -752,7 +834,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["OrderOut"];
                 };
             };
             /** @description Validation Error */
@@ -783,7 +865,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["OrderOut"];
                 };
             };
             /** @description Validation Error */
