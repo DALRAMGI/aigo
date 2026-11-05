@@ -136,7 +136,7 @@ test("가입 → 테스트 결제 → 업로드 → 레포트 → 삭제 → 탈
     await page.getByLabel("이메일").fill(email);
     await page.getByLabel("비밀번호").fill(password);
     await page.getByRole("button", { name: "로그인", exact: true }).click();
-    await expect(page.getByRole("alert")).toBeVisible();
+    await expect(page.getByRole("alert").filter({ hasText: "오류" })).toBeVisible(); // Next 경로 안내도 alert라서 거른다
   });
 
   if (SHOTS) writeFileSync(`${SHOTS}/journey.json`, JSON.stringify({ base: page.url(), steps }, null, 2));
