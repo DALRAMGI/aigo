@@ -91,11 +91,9 @@ def run_pipeline(ctx: Context) -> PipelineResult:
                      else uniform_keyframes(video, tracks, out_dir))
         d.update(frames=len(keyframes), times=[round(k.t, 2) for k in keyframes])
 
-    extra_focus = False
+    extra_focus, first_observation = False, None
     with stage("observe") as d:
         observation = observe(keyframes, candidates, tracks, ctx.llm)
-        if observation.collision_t is not None and not 0 <= observation.collision_t <= info.duration:
-            observation.collision_t = None
         t = recheck_time(observation, candidates, info.duration)
         if t is not None:
             # 프레임이 듬성한 곳이다. 그 주변을 빠짐없이 뽑아 한 번만 다시 보고, 그 구간은 다시 본 결과를 따른다.
@@ -106,6 +104,10 @@ def run_pipeline(ctx: Context) -> PipelineResult:
             second = observe(dense, [again], tracks, ctx.llm)
             lead_up = [f for f in observation.facts if not dense[0].t <= f.t <= dense[-1].t]
             second.facts = sorted(lead_up + second.facts, key=lambda f: f.t)
+            for field in ("road", "ego_action", "other_action", "signal"):  # 3초 구간에서 안 보인 맥락은 첫 관찰을 쓴다.
+                if getattr(second, field) is None:
+                    setattr(second, field, getattr(observation, field))
+            first_observation = observation.model_dump(mode="json")
             observation, keyframes = second, sorted(keyframes + dense, key=lambda k: k.t)
         d.update(frames=len(keyframes), extra_focus=extra_focus)
 
@@ -119,5 +121,5 @@ def run_pipeline(ctx: Context) -> PipelineResult:
              "track_count": len(tracks), "scan_failed": scan_failed, "extra_focus": extra_focus,
              "model": settings.openai_model, "reasoning_effort": settings.openai_reasoning_effort,
              "prompt_version": PROMPT_VERSION, "llm_calls": ctx.llm.calls, "stage_seconds": seconds,
-             "observation": observation.model_dump(mode="json")}
+             "observation": observation.model_dump(mode="json"), "first_observation": first_observation}
     return PipelineResult(report, trace, playback, _overlay(drop_hood(tracks, info.height), info.width, info.height))

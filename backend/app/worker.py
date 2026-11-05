@@ -98,11 +98,11 @@ def set_stage(db: Session, analysis_id: int, stage: str, detail: dict | None, st
     db.commit()
 
 
-def _fail(db: Session, analysis_id: int, attempt: int, code: str, message: str) -> None:
+def _fail(db: Session, analysis_id: int, attempt: int, code: str, message: str, trace: dict | None = None) -> None:
     a = _live(db, analysis_id, attempt)
     if not a:
         return
-    a.status, a.error_code, a.finished_at = AnalysisStatus.failed, code, quota._now()
+    a.status, a.error_code, a.finished_at, a.trace = AnalysisStatus.failed, code, quota._now(), trace
     # 사용자 메시지는 progress["error"]에 둔다. API의 단계 목록은 Stage 키만 읽으므로 섞이지 않는다.
     a.progress = {**(a.progress or {}), "error": {"message": message}}
     db.commit()
@@ -134,6 +134,7 @@ def _finish(db: Session, storage: Storage, aid: int, attempt: int, res: Pipeline
 def process(db: Session, a: Analysis, storage: Storage, pipeline: Callable = run_pipeline,
             llm=None, table=None, session_factory=SessionLocal, heartbeat_s: float = HEARTBEAT_S) -> None:
     aid, attempt = a.id, a.attempts
+    llm = llm or LLM()
     stop = threading.Event()
     threading.Thread(target=_heartbeat_loop, args=(session_factory, aid, attempt, stop, heartbeat_s),
                      daemon=True).start()
@@ -144,16 +145,16 @@ def process(db: Session, a: Analysis, storage: Storage, pipeline: Callable = run
         with tempfile.TemporaryDirectory() as tmp:
             workdir = Path(tmp)
             storage.download(a.source_key, workdir / f"source{PurePosixPath(a.source_key).suffix}")
-            ctx = Context(aid, workdir, storage, llm or LLM(), table or FaultTable.load(), lambda stage, detail=None, status="done":
+            ctx = Context(aid, workdir, storage, llm, table or FaultTable.load(), lambda stage, detail=None, status="done":
                           set_stage(db, aid, stage, detail, status, attempt))
             _finish(db, storage, aid, attempt, pipeline(ctx), workdir)
     except PipelineError as e:
         db.rollback()
-        _fail(db, aid, attempt, e.code, e.message)
+        _fail(db, aid, attempt, e.code, e.message, {"llm_calls": llm.calls})  # 실패해도 쓴 비용은 남긴다.
     except Exception:
         log.exception("분석 %s 처리 실패", aid)
         db.rollback()
-        _fail(db, aid, attempt, "INTERNAL_ERROR", INTERNAL_MESSAGE)
+        _fail(db, aid, attempt, "INTERNAL_ERROR", INTERNAL_MESSAGE, {"llm_calls": llm.calls})
     finally:
         stop.set()
 

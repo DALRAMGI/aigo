@@ -37,7 +37,7 @@ def observation(t=3.0, **kw) -> Observation:
 
 
 def verdict(**kw) -> AssessOut:
-    base = dict(accident_type="접촉", summary="요약", severity="low", timeline=[0], chart_id="차43-2", me="A",
+    base = dict(accident_type="접촉", summary="요약", severity="low", severity_fact=0, timeline=[0], chart_id="차43-2", chart_facts=[0], me="A",
                 applied=[], unknown=[], serious=[], favorable=[], unfavorable=[], actions_now=[], actions_later=[])
     return AssessOut(**{**base, **kw})
 
@@ -137,11 +137,29 @@ def test_collision_inside_candidate_window_does_not_refocus(clip_with_motion, tm
 
 
 def test_collision_time_outside_video_is_dropped(clip_with_motion, tmp_path):
-    bad = observation(t=500.0)
-    llm = FakeLLM(bad, verdict(chart_id=None, me=None))
+    llm = FakeLLM(observation(t=500.0))
     ctx, _ = context(tmp_path, clip_with_motion, llm)
     r = run_pipeline(ctx).report
-    assert r.collision_t is None and r.confidence == "low"
+    assert r.involvement == "none" and r.collision_t is None and r.confidence == "low"
+
+
+def test_collision_past_the_end_from_second_look_is_dropped(clip_with_motion, tmp_path):
+    late = observation(t=6.5, facts=[Fact(t=5.9, text="접촉")])  # 사실은 영상 안, 충돌 시각만 영상 밖
+    llm = FakeLLM(observation(t=5.5), late)
+    ctx, _ = context(tmp_path, clip_with_motion, llm)
+    r = run_pipeline(ctx).report
+    assert r.involvement == "none" and r.collision_t is None and r.fault is None and llm.responses == []
+
+
+def test_second_look_keeps_first_context_and_trace(clip_with_motion, tmp_path):
+    first = observation(t=5.5, road="편도 2차로", signal="녹색", ego_action="직진")
+    second = observation(t=5.5, road=None, signal=None, ego_action="서행", other_action=None)
+    llm = FakeLLM(first, second, verdict())
+    ctx, _ = context(tmp_path, clip_with_motion, llm)
+    t = run_pipeline(ctx).trace
+    o = t["observation"]
+    assert (o["road"], o["signal"], o["ego_action"], o["other_action"]) == ("편도 2차로", "녹색", "서행", "차로 변경")
+    assert t["first_observation"]["road"] == "편도 2차로"
 
 
 def test_tracks_become_normalized_overlay_and_aspect_is_passed(clip_with_motion, tmp_path, monkeypatch):
@@ -200,3 +218,21 @@ def test_worker_runs_real_pipeline_and_saves_report(db, user, storage, clip_with
     assert a.report["fault"]["chart_id"] == "차43-2" and a.trace["prompt_version"]
     assert a.progress["assess"]["status"] == "done" and a.progress["locate"]["detail"]["candidates"]
     assert storage.head(a.playback_key) and storage.head(f"analyses/{a.id}/overlay.json")
+
+
+def test_failed_job_keeps_token_usage_in_trace(db, user, storage, clip_with_motion):
+    from app import worker
+    from app.errors import PipelineError
+    from app.models import Analysis, AnalysisStatus
+
+    a = Analysis(user_id=user.id, status=AnalysisStatus.queued, source_size=clip_with_motion.stat().st_size)
+    db.add(a)
+    db.flush()
+    a.source_key = f"analyses/{a.id}/source.mp4"
+    db.flush()
+    storage.s3.put_object(Bucket=storage.bucket, Key=a.source_key, Body=clip_with_motion.read_bytes())
+    a = worker.claim_next(db)
+    llm = FakeLLM(PipelineError("MODEL_INVALID", "실패"))
+    llm.calls.append({"schema": "Observation", "input_tokens": 10, "output_tokens": 2, "valid": False})
+    worker.process(db, a, storage, llm=llm, table=FaultTable.load())
+    assert a.status == AnalysisStatus.failed and a.trace["llm_calls"][0]["input_tokens"] == 10

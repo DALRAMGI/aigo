@@ -116,6 +116,15 @@ def test_global_daily_limit(client, db, monkeypatch, frozen_time):
     assert r.status_code == 429 and r.json()["code"] == "SERVICE_LIMIT"
 
 
+def test_failed_analysis_still_counts_for_global_limit(client, db, monkeypatch, frozen_time, other_auth):
+    monkeypatch.setattr(settings, "global_daily_limit", 1)
+    a_id = client.post(P, json=BODY, headers=auth()).json()["id"]
+    db.get(Analysis, a_id).status = AnalysisStatus.failed
+    db.flush()
+    r = client.post(P, json=BODY, headers=other_auth)
+    assert r.status_code == 429 and r.json()["code"] == "SERVICE_LIMIT"
+
+
 def test_concurrent_create_cannot_exceed_limit(fake_clerk, storage, monkeypatch):
     monkeypatch.setattr(settings, "user_daily_limit", 1)
     app = create_app()

@@ -29,7 +29,7 @@ PROMPT = """너는 블랙박스 영상 프레임을 기록하는 관찰자다. �
 - facts: 보이는 사실을 시간순으로 적는다. t는 보여 준 프레임의 시각을 그대로 쓴다. 후보나 점수 이야기는 쓰지 않는다.
 - collision_t: 프레임들이 충돌을 보여 줄 때만 그 시각을 적고, 그 시각의 facts에 무엇이 보였는지 적는다. 블랙박스에는 자기 차 앞끝이 잘 찍히지 않으므로 맞닿는 순간이 없어도 다음 중 하나면 충돌이 보인 것이다. 다른 차나 물체가 자기 차 앞부분과 겹친 채 다음 프레임들에도 그대로 붙어 있음, 공중이나 도로에 파편이 튐, 파손, 자기 차가 다른 차나 물체에 닿은 채 멈춤. 프레임들 사이에서 일어난 것이 분명하면 가장 가까운 시각을 적는다.
 - 충돌이 아닌 것: 틈을 두고 가까이 지나감, 끼어듦, 급정거, 다른 차가 화면 밖으로 빠져나가고 양쪽이 계속 달림. 이런 경우와 충돌이 보이지 않는 경우 collision_t는 null이다.
-- suspect_t: collision_t가 null일 때 충돌 가능성을 다시 볼 만한 시각이다. 다른 차나 물체가 자기 차에 가장 가까이 붙은 프레임을 적는다. 그런 순간이 없거나 collision_t를 적었으면 null이다. 이 시각 주변을 더 촘촘한 프레임으로 다시 보여 준다.
+- suspect_t: collision_t가 null일 때만 쓴다. 접촉이 의심되는 프레임, 곧 틈이 보이지 않을 만큼 다른 차나 물체가 자기 차와 겹쳤거나 겹친 뒤 움직임이 이상한 프레임의 시각을 적는다. 그냥 가장 가까이 지나간 프레임은 적지 않는다. 틈이 보이면 null이다. 이 시각 주변을 더 촘촘한 프레임으로 다시 보여 준다.
 - involvement: party는 촬영 차가 충돌 당사자, witness는 다른 차들끼리 충돌, none은 충돌이 보이지 않거나 판단할 수 없음이다. none이면 reason에 이유를 사용자에게 보여 줄 한 문장으로 적고, 아니면 reason은 null이다.
 - scene: signal_intersection(신호 교차로), unsignaled_intersection(비신호 교차로), lane_change(차로 변경, 끼어들기), rear_end(추돌), opposite_direction(마주 오는 차), parking(주차장, 주정차), pedestrian(보행자), other(그 밖).
 - road, ego_action, other_action, signal: 보이는 대로 짧게 적는다. 보이지 않으면 null이다.
@@ -56,7 +56,7 @@ def outside_windows(t: float, candidates: list[Candidate]) -> bool:
 
 def recheck_time(o: Observation, candidates: list[Candidate], duration: float) -> float | None:
     """촘촘히 다시 볼 시각. 창 밖의 충돌이거나, 충돌을 못 봤지만 의심 시각이 있을 때다."""
-    if o.collision_t is not None:
+    if o.collision_t is not None and 0 <= o.collision_t <= duration:
         return o.collision_t if outside_windows(o.collision_t, candidates) else None
     return o.suspect_t if o.suspect_t is not None and 0 <= o.suspect_t <= duration else None
 

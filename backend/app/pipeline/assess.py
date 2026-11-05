@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Literal
 
 from pydantic import BaseModel
@@ -12,7 +13,8 @@ from app.report import Evidence, FaultAssessment, FaultStep, Report, SeriousViol
 NO_ACCIDENT = "영상에서 사고를 확인하지 못했습니다."
 NO_EVIDENCE = "영상에서 근거 시각이 있는 사실을 확인하지 못했습니다."
 NO_CHART = "기준 도표를 찾지 못했습니다."
-NO_COLLISION = "충돌 순간을 확인하지 못해 과실비율을 내지 않았습니다."
+NO_COLLISION = "영상에서 충돌 순간을 확인하지 못했습니다."
+FAULT_NUMBER = re.compile(r"\d+\s*%|\d+\s*:\s*\d+")  # 과실 숫자는 코드만 낸다.
 SeriousItem = Literal[
     "신호위반", "중앙선 침범", "제한속도 20km/h 초과", "앞지르기·끼어들기 위반", "철길건널목 통과 위반", "횡단보도 보행자 보호 위반",
     "무면허운전", "음주운전", "보도 침범", "승객 추락 방지 위반", "어린이보호구역 위반", "화물 고정 위반",
@@ -27,12 +29,14 @@ PROMPT = """너는 교통사고 관찰 기록을 기준 도표에 맞추는 분�
 - 근거를 적는 칸(fact)에는 그 주장을 직접 뒷받침하는 사실 번호를 쓴다. 그런 사실이 없으면 null이다.
 
 작성
-- chart_id: 사고 상황이 후보 도표의 situation과 실제로 맞을 때만 고른다. 맞는 도표가 없거나 후보가 없으면 null이다. 억지로 고르지 않는다.
+- chart_id: 도표의 situation을 사실과 하나씩 비교한다. 진행 방향, 누가 어디서 어떻게 움직였는지 중 하나라도 사실과 어긋나면 그 도표는 버린다. 비슷해 보인다고 고르지 않는다. 맞는 도표가 없으면 null이다. 도표를 내지 않는 것은 정상 결과다.
+- charts는 관찰의 장면 분류로 고른 후보이고 분류는 틀릴 수 있다. other_charts는 나머지 도표의 제목이다. 제목이 사실에 더 맞으면 chart_id에 그 id를 적어라. 상세를 보여 주고 다시 묻는다.
+- chart_facts: 고른 도표의 상황을 직접 보여 주는 사실 번호들이다. 도표를 고르지 않으면 빈 목록이다.
 - me: 고른 도표에서 촬영 차가 A인지 B인지 적는다. 도표를 고르지 않으면 null이다.
 - applied: 사실이 직접 보여 주는 수정요소 id와 사실 번호다.
 - unknown: 결과에 영향을 줄 수 있지만 영상으로 판단할 수 없는 수정요소 id다. 사실이 해당 없음을 보여 주면 적지 않는다.
 - serious: 12대 중과실 중 이 사고와 관련 있어 보이는 항목만 적는다. likelihood high는 그 사실이 위반 자체를 직접 보여 줄 때만 쓴다. 가까이 있었다, 접근했다 정도면 low나 unknown이다. 음주, 무면허, 속도는 영상으로 알 수 없으니 unknown이다.
-- severity: 사실에 보이는 파손과 충격으로 고른다. 알 수 없으면 null이다.
+- severity, severity_fact: 사실에 보이는 파손과 충격으로 고르고 그 사실 번호를 적는다. 그런 사실이 없으면 둘 다 null이다.
 - timeline: 사고 흐름을 보여 주는 사실 번호를 시간순으로 적는다.
 - favorable, unfavorable: 촬영 차 운전자에게 유리하거나 불리한 점이다.
 - actions_now, actions_later: 일반적인 대응 안내다. 부상 여부처럼 사실에 없는 상황을 있다고 쓰지 않는다. 사용자가 읽는 글이므로 도표 후보, 사실 번호 같은 입력 구조 이야기는 쓰지 않는다.
@@ -60,8 +64,10 @@ class AssessOut(BaseModel):
     accident_type: str | None
     summary: str
     severity: Literal["low", "medium", "high"] | None
+    severity_fact: int | None
     timeline: list[int | None]
     chart_id: str | None
+    chart_facts: list[int]
     me: Literal["A", "B"] | None
     applied: list[Pick]
     unknown: list[str]
@@ -78,14 +84,18 @@ def _none(reason: str) -> Report:
                   serious_violations=[], favorable=[], unfavorable=[], actions_now=[], actions_later=[])
 
 
-def _messages(o: Observation, facts: list[Fact], collision_t: float | None, charts: list[Chart]) -> list[dict]:
+def _chart_view(c: Chart) -> dict:
+    # 기본과실과 증감 숫자는 보여 주지 않는다. 모델이 결과를 맞춰 고르지 못하게 한다.
+    return {"id": c.id, "title": c.title, "situation": c.situation,
+            "modifiers": [{"id": m.id, "party": m.party, "label": m.label} for m in c.modifiers]}
+
+
+def _messages(o: Observation, facts: list[Fact], collision_t: float, charts: list[Chart], others: list[Chart]) -> list[dict]:
     record = {"involvement": o.involvement, "scene": o.scene, "road": o.road, "ego_action": o.ego_action,
               "other_action": o.other_action, "signal": o.signal, "collision_t": collision_t, "unseen": o.unseen,
               "facts": [{"fact": i, "t": f.t, "text": f.text} for i, f in enumerate(facts)]}
-    # 기본과실과 증감 숫자는 보여 주지 않는다. 모델이 결과를 맞춰 고르지 못하게 한다.
-    options = [{"id": c.id, "title": c.title, "situation": c.situation,
-                "modifiers": [{"id": m.id, "party": m.party, "label": m.label} for m in c.modifiers]} for c in charts]
-    text = json.dumps({"observation": record, "charts": options}, ensure_ascii=False)
+    text = json.dumps({"observation": record, "charts": [_chart_view(c) for c in charts],
+                       "other_charts": [{"id": c.id, "title": c.title} for c in others]}, ensure_ascii=False)
     return [{"role": "system", "content": PROMPT}, {"role": "user", "content": text}]
 
 
@@ -114,41 +124,59 @@ def assess(observation: Observation, keyframes: list[Keyframe], table: FaultTabl
     facts = sorted((f for f in o.facts if 0 <= f.t <= duration and near_frame(f.t, keyframes)), key=lambda f: f.t)
     if not facts:
         return _none(NO_EVIDENCE)
-    # 충돌 시각은 그 곁에 프레임에서 본 사실이 있어야 확인된 것이다.
-    collision_t = o.collision_t if o.collision_t is not None and any(
-        abs(f.t - o.collision_t) <= NEAR_FRAME_S for f in facts) else None
-    judged = o.involvement == "party" and collision_t is not None
-    charts = table.shortlist(o.scene) if judged else []
+    # 충돌 시각은 영상 안이고 그 곁에 프레임에서 본 사실이 있어야 확인된 것이다. 확인이 안 되면 사고 레포트를 내지 않는다.
+    collision_t = o.collision_t
+    if collision_t is None or not 0 <= collision_t <= duration or not any(
+            abs(f.t - collision_t) <= NEAR_FRAME_S for f in facts):
+        return _none(NO_COLLISION)
+    party = o.involvement == "party"
+    charts = table.shortlist(o.scene) if party else []
+    others = [c for c in table.charts if c not in charts] if party else []
 
     def check(out: AssessOut) -> None:
-        if not judged or out.chart_id is None:
+        texts = [out.accident_type or "", out.summary, *out.actions_now, *out.actions_later,
+                 *(c.text for c in out.favorable + out.unfavorable)]
+        if any(FAULT_NUMBER.search(t) for t in texts):
+            raise InvalidOutput("글에 과실 비율이나 퍼센트, 대비 숫자를 쓰지 마라. 시각도 초 단위로만 적어라.")
+        if not party or out.chart_id is None:
             return
         if out.chart_id not in {c.id for c in charts}:
-            raise InvalidOutput(f"{out.chart_id}는 후보 도표에 없다. 후보 중에서 고르거나 null로 답하라.")
+            extra = next((c for c in others if c.id == out.chart_id), None)
+            if extra is None:
+                raise InvalidOutput(f"{out.chart_id}는 없는 도표다. 있는 도표에서 고르거나 chart_id와 me를 null로 답하라.")
+            charts.append(extra)  # 다음 답에서 고를 수 있다.
+            raise InvalidOutput(f"{extra.id} 상세: {json.dumps(_chart_view(extra), ensure_ascii=False)}\n"
+                                "상황을 사실과 비교해 어긋남이 없으면 이 도표로 수정요소까지 답하고, 아니면 다른 도표나 null로 답하라.")
         if out.me is None:
-            raise InvalidOutput("도표를 골랐으면 me에 A나 B를 적어야 한다.")
+            raise InvalidOutput("도표가 맞으면 me에 A나 B를 적고, 촬영 차가 어느 쪽인지 정할 수 없으면 chart_id와 me를 null로 답하라.")
 
-    out = ask(llm, _messages(o, facts, collision_t, charts), AssessOut, check)
+    out = ask(llm, _messages(o, facts, collision_t, charts, others), AssessOut, check)
+    cited: set[int] = set()
 
     def cite(i: int | None) -> Evidence | None:
-        return facts[i] if i is not None and 0 <= i < len(facts) else None
+        if i is None or not 0 <= i < len(facts):
+            return None
+        cited.add(i)
+        return facts[i]
 
     def claims(items: list[Cite]) -> list[str]:
-        return [f"{c.text} ({e.t:.1f}초)" for c in items if (e := cite(c.fact))] if judged else []
+        return [f"{c.text} ({e.t:.1f}초)" for c in items if (e := cite(c.fact))] if party else []
 
     def serious(p: SeriousPick) -> SeriousViolation:
-        e = cite(p.fact)
-        if e is None or p.item in UNSEEABLE:
-            return SeriousViolation(item=p.item, likelihood="unknown", evidence=None)
-        return SeriousViolation(item=p.item, likelihood=p.likelihood, evidence=e)
+        e = None if p.item in UNSEEABLE else cite(p.fact)
+        return SeriousViolation(item=p.item, likelihood=p.likelihood if e else "unknown", evidence=e)
 
-    fault = _fault(table.get(out.chart_id), out, cite) if judged and out.chart_id else None
-    note = None if fault or o.involvement != "party" else NO_CHART if judged else NO_COLLISION
+    supported = party and out.chart_id is not None and any([cite(i) for i in out.chart_facts])
+    fault = _fault(table.get(out.chart_id), out, cite) if supported else None
+    timeline = [e for i in sorted({i for i in out.timeline if i is not None}) if (e := cite(i))]
+    violations = [serious(p) for p in out.serious] if party else []
+    favorable, unfavorable = claims(out.favorable), claims(out.unfavorable)
+    severity = out.severity if cite(out.severity_fact) else None
+    level = confidence(True, len(cited), len(fault.unknown) if fault else 0)
+    if party and not fault and level == "high":  # 충돌은 확인했어도 과실 판단이 없는 레포트다.
+        level = "medium"
     return Report(
         involvement=o.involvement, reason=None, accident_type=out.accident_type, summary=out.summary,
-        collision_t=collision_t, confidence=confidence(collision_t is not None, len(facts), len(fault.unknown) if fault else 0),
-        severity=out.severity if collision_t is not None else None,
-        timeline=[e for i in out.timeline if (e := cite(i))], facts=facts, unseen=o.unseen, fault=fault, fault_note=note,
-        serious_violations=[serious(p) for p in out.serious] if judged else [],
-        favorable=claims(out.favorable), unfavorable=claims(out.unfavorable),
-        actions_now=out.actions_now, actions_later=out.actions_later)
+        collision_t=collision_t, confidence=level, severity=severity, timeline=timeline, facts=facts, unseen=o.unseen,
+        fault=fault, fault_note=NO_CHART if party and not fault else None, serious_violations=violations,
+        favorable=favorable, unfavorable=unfavorable, actions_now=out.actions_now, actions_later=out.actions_later)

@@ -1,5 +1,6 @@
 import base64
 import json
+import time
 
 import cv2
 import httpx2
@@ -10,7 +11,8 @@ from pydantic import BaseModel
 
 from app.config import settings
 from app.errors import PipelineError
-from app.llm import JPEG_QUALITY, LLM, LONG_EDGE, InvalidOutput, ask, image_part
+from app.llm import (JOB_DEADLINE_S, JPEG_QUALITY, LLM, LONG_EDGE, MAX_OUTPUT_TOKENS, MAX_RETRIES, REQUEST_TIMEOUT_S,
+                     InvalidOutput, ask, image_part)
 from tests.fixtures.fake_llm import FakeLLM
 
 
@@ -51,6 +53,7 @@ def test_parse_structured_sends_schema_and_records_tokens():
     assert sent["model"] == settings.openai_model
     assert sent["reasoning"]["effort"] == settings.openai_reasoning_effort
     assert sent["text"]["format"]["type"] == "json_schema" and sent["text"]["format"]["strict"] is True
+    assert sent["max_output_tokens"] == MAX_OUTPUT_TOKENS
     assert sent["store"] is False  # 사고 영상 프레임을 OpenAI에 보관하지 않는다.
     assert llm.calls[0]["schema"] == "Out"
     assert (llm.calls[0]["input_tokens"], llm.calls[0]["output_tokens"], llm.calls[0]["reasoning_tokens"]) == (100, 20, 7)
@@ -75,6 +78,38 @@ def test_refusal_or_bad_json_is_invalid_output(content):
     llm = _llm(lambda req: httpx2.Response(200, json=_reply(content)))
     with pytest.raises(InvalidOutput):
         llm.parse_structured([{"role": "user", "content": "질문"}], Out)
+    assert llm.calls[0]["input_tokens"] == 100 and llm.calls[0]["valid"] is False  # 실패해도 쓴 토큰은 남는다.
+
+
+def test_production_client_config(monkeypatch):
+    monkeypatch.setattr(settings, "openai_api_key", "test")
+    c = LLM().client
+    assert c.max_retries == MAX_RETRIES == 1 and c.timeout == REQUEST_TIMEOUT_S
+    assert JOB_DEADLINE_S == 300
+
+
+def test_job_deadline_stops_further_calls():
+    def handler(req):
+        raise AssertionError("호출되면 안 된다")
+
+    llm = _llm(handler)
+    llm.deadline = time.monotonic() - 1
+    with pytest.raises(PipelineError) as e:
+        llm.parse_structured([{"role": "user", "content": "질문"}], Out)
+    assert e.value.code == "MODEL_TIMEOUT"
+
+
+def test_request_timeout_shrinks_to_fit_the_deadline():
+    seen = {}
+
+    def handler(req):
+        seen.update(req.extensions["timeout"])
+        return httpx2.Response(200, json=_reply(_text('{"answer": "네", "t": null}')))
+
+    llm = _llm(handler)
+    llm.deadline = time.monotonic() + 20
+    llm.parse_structured([{"role": "user", "content": "질문"}], Out)
+    assert seen["read"] <= 10  # 재시도 1회까지 합쳐 기한 안이다.
 
 
 def test_api_error_becomes_user_message():

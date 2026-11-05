@@ -28,8 +28,8 @@ def obs(**kw) -> Observation:
 
 
 def out(**kw) -> AssessOut:
-    base = dict(accident_type="차로 변경 접촉", summary="우측 차가 끼어들어 접촉했다.", severity="low", timeline=[0, 1],
-                chart_id="차43-2", me="A", applied=[], unknown=[], serious=[], favorable=[], unfavorable=[],
+    base = dict(accident_type="차로 변경 접촉", summary="우측 차가 끼어들어 접촉했다.", severity="low", severity_fact=1, timeline=[0, 1],
+                chart_id="차43-2", chart_facts=[0, 1], me="A", applied=[], unknown=[], serious=[], favorable=[], unfavorable=[],
                 actions_now=["사진을 찍는다"], actions_later=["보험사에 알린다"])
     return AssessOut(**{**base, **kw})
 
@@ -62,7 +62,7 @@ def test_party_uses_calculated_range_not_model_number():
     assert (r.fault.base, r.fault.my_min, r.fault.my_max) == (want.base, want.my_min, want.my_max)
     assert r.fault.steps[0].delta == -10 and r.fault.steps[0].evidence.t == 11.0
     assert r.fault.source_url == TABLE.get("차43-2").source and r.fault.chart_title
-    numeric = {n for n, f in AssessOut.model_fields.items() if "int" in str(f.annotation) and n != "timeline"}
+    numeric = {n for n, f in AssessOut.model_fields.items() if "int" in str(f.annotation) and n not in ("timeline", "chart_facts", "severity_fact")}
     assert numeric == set()  # 모델은 사실 번호 말고 숫자를 낼 수 없다.
 
 
@@ -96,7 +96,7 @@ def test_chart_without_side_is_rejected():
 
 
 def test_no_matching_chart_sets_fault_note():
-    r, _ = run(obs(), out(chart_id=None, me=None))
+    r, _ = run(obs(), out(chart_id=None, me=None, chart_facts=[]))
     assert r.fault is None and r.fault_note == "기준 도표를 찾지 못했습니다."
     assert r.summary and r.collision_t == 12.0
 
@@ -115,12 +115,12 @@ def test_modifier_without_evidence_widens_instead_of_applying():
 def test_evidence_time_outside_video_is_removed():
     facts = [Fact(t=999.0, text="영상 밖"), Fact(t=-1.0, text="음수"), Fact(t=12.0, text="접촉"), Fact(t=12.5, text="멈춤")]
     r, llm = run(obs(facts=facts), out(applied=[Pick(id="b3", fact=0)], favorable=[Cite(fact=5, text="없는 번호")]))
-    assert [f.t for f in r.facts] == [12.0, 12.5]
+    assert r.favorable == [] and [f.t for f in r.facts] == [12.0, 12.5]
     assert "영상 밖" not in str(llm.seen[0][0])
 
 
 def test_fact_far_from_any_shown_frame_is_removed():
-    r, _ = run(obs(facts=[Fact(t=2.0, text="보여 주지 않은 시각"), Fact(t=12.0, text="접촉")]), out())
+    r, _ = run(obs(facts=[Fact(t=2.0, text="보여 주지 않은 시각"), Fact(t=12.0, text="접촉")]), out(timeline=[0], chart_facts=[0], severity_fact=0))
     assert [f.t for f in r.facts] == [12.0]
 
 
@@ -147,24 +147,92 @@ def test_drunk_driving_cannot_be_seen_even_with_a_cited_fact():
     assert all(s.evidence is None for s in r.serious_violations)
 
 
-def test_clear_collision_with_three_facts_is_high():
-    r, _ = run(obs(), out())
+def test_three_cited_facts_with_a_chart_is_high():
+    r, _ = run(obs(), out(timeline=[0, 1, 2]))
     assert r.confidence == "high" and r.collision_t == 12.0
 
 
-def test_unconfirmed_collision_is_low_and_gets_no_fault():
-    picked = out(severity="high", favorable=[Cite(fact=0, text="유리")],
-                 serious=[SeriousPick(item="신호위반", likelihood="high", fact=0)])
-    r, llm = run(obs(collision_t=None), picked)
-    assert r.confidence == "low" and r.collision_t is None and r.fault is None
-    assert r.fault_note == "충돌 순간을 확인하지 못해 과실비율을 내지 않았습니다."
-    assert r.severity is None and r.favorable == [] and r.serious_violations == []
-    assert "차43-2" not in str(llm.seen[0][0])  # 도표를 고르게 하지 않는다.
+def test_confidence_counts_cited_facts_not_all_facts():
+    r, _ = run(obs(), out(timeline=[0], chart_facts=[0], severity_fact=None))
+    assert r.confidence == "medium" and len(r.facts) == 3
+
+
+def test_party_without_chart_is_at_most_medium():
+    r, _ = run(obs(), out(chart_id=None, me=None, chart_facts=[], timeline=[0, 1, 2]))
+    assert r.confidence == "medium"
+
+
+def test_witness_can_be_high_without_chart():
+    r, _ = run(obs(involvement="witness"), out(chart_id=None, me=None, chart_facts=[], timeline=[0, 1, 2]))
+    assert r.confidence == "high"
+
+
+def test_severity_without_cited_fact_is_dropped():
+    r, _ = run(obs(), out(severity="high", severity_fact=None))
+    assert r.severity is None
+    r, _ = run(obs(), out(severity="high", severity_fact=9))
+    assert r.severity is None
+    r, _ = run(obs(), out(severity="high", severity_fact=1))
+    assert r.severity == "high"
+
+
+def test_chart_without_supporting_fact_gives_no_range():
+    for facts in ([], [9]):
+        r, _ = run(obs(), out(chart_facts=facts))
+        assert r.fault is None and r.fault_note == "기준 도표를 찾지 못했습니다."
+
+
+def test_prompt_lists_other_chart_titles_without_details():
+    _, llm = run(obs(), out())
+    text = str(llm.seen[0][0])
+    assert TABLE.get("차41-1").title in text and TABLE.get("차41-1").situation not in text
+
+
+def test_chart_from_other_scene_can_be_chosen_after_seeing_details():
+    r, llm = run(obs(), out(chart_id="차41-1"), out(chart_id="차41-1"))
+    assert r.fault.chart_id == "차41-1"
+    assert TABLE.get("차41-1").situation in llm.seen[1][2] and "base_a" not in llm.seen[1][2]
+
+
+def test_me_repair_allows_returning_to_null():
+    r, llm = run(obs(), out(me=None), out(chart_id=None, me=None, chart_facts=[]))
+    assert "null" in llm.seen[1][2] and r.fault is None
+
+
+@pytest.mark.parametrize("field", ["summary", "accident_type"])
+@pytest.mark.parametrize("text", ["내 과실은 30%입니다", "과실 70 : 30으로 보입니다"])
+def test_fault_numbers_in_text_are_rerequested(field, text):
+    r, llm = run(obs(), out(**{field: text}), out())
+    assert len(llm.seen) == 2 and text not in str(r.model_dump())
+
+
+def test_fault_numbers_in_advice_and_claims_fail_after_one_retry():
+    bad = out(actions_later=["상대 과실 80%를 주장한다"], favorable=[Cite(fact=1, text="20:80")])
+    with pytest.raises(PipelineError):
+        run(obs(), bad, bad)
+
+
+def test_timeline_is_sorted_and_unique():
+    r, _ = run(obs(), out(timeline=[2, 0, 2, 1, 0]))
+    assert [e.t for e in r.timeline] == [11.0, 12.0, 12.5]
+
+
+def test_unconfirmed_collision_returns_none_without_asking():
+    for involvement in ("party", "witness"):
+        r, llm = run(obs(involvement=involvement, collision_t=None))
+        assert r.involvement == "none" and r.reason and llm.seen == []
+        assert r.confidence == "low" and r.fault is None and r.summary is None
 
 
 def test_collision_time_without_a_fact_there_is_not_confirmed():
-    r, _ = run(obs(collision_t=13.9, facts=[Fact(t=10.0, text="차가 지나간다")]), out(timeline=[0]))
-    assert r.collision_t is None and r.confidence == "low" and r.fault is None
+    r, llm = run(obs(collision_t=13.9, facts=[Fact(t=10.0, text="차가 지나간다")]))
+    assert r.involvement == "none" and llm.seen == []
+
+
+def test_collision_time_past_the_end_is_not_confirmed_even_with_a_fact_nearby():
+    frames = [Keyframe(19.5, Path("r"), Path("a"), "")]
+    r, llm = run(obs(collision_t=20.5, facts=[Fact(t=19.8, text="접촉")]), frames=frames)
+    assert r.involvement == "none" and llm.seen == []
 
 
 def test_party_without_any_grounded_fact_becomes_none():
@@ -250,3 +318,4 @@ def test_recheck_time_rules():
     assert recheck_time(obs(collision_t=None, suspect_t=11.0), c, DURATION) == 11.0  # 창 안이어도 못 봤으면 다시 본다.
     assert recheck_time(obs(collision_t=None, suspect_t=None), c, DURATION) is None
     assert recheck_time(obs(collision_t=None, suspect_t=99.0), c, DURATION) is None
+    assert recheck_time(obs(collision_t=99.0), c, DURATION) is None  # 영상 밖 시각으로 프레임을 뽑지 않는다.
