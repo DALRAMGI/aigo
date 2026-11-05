@@ -1,6 +1,6 @@
 // TODO(T11): 아래 값은 임시 문구다. Task 11 평가에서 나온 실제 레포트 글로 SAMPLE_REPORT를 바꾸고,
 // 그 영상 길이로 SAMPLE_CLIP_SEC를 바꾼 뒤 ReportSample의 "임시 문구" 표시를 지운다.
-// 영상, 프레임, 번호판은 넣지 않는다. 키는 backend/app/report.py의 Report와 같다.
+// 영상, 프레임, 번호판은 넣지 않는다. 키는 apps/api/app/report.py의 Report와 같다.
 export const SAMPLE_CLIP_SEC = 12;
 
 export const SAMPLE_REPORT = {

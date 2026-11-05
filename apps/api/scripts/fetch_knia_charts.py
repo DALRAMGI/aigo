@@ -1,7 +1,7 @@
 """손해보험협회 과실비율정보포털에서 도표를 내려받아 data/fault_charts.json을 만든다.
 
 수치는 페이지에서 그대로 파싱한다. 하나라도 파싱에 실패하면 파일을 쓰지 않고 오류로 끝낸다.
-실행: cd backend && uv run python scripts/fetch_knia_charts.py [차43-2 ...]
+실행: cd apps/api && uv run python scripts/fetch_knia_charts.py [차43-2 ...]
 """
 import html
 import json
