@@ -10,7 +10,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title="AIGO API")
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[settings.web_origin],
+        allow_origins=settings.clerk_authorized_parties,  # 토큰을 믿는 웹 주소와 같은 목록
         allow_methods=["*"],
         allow_headers=["*"],
     )

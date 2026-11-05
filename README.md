@@ -44,7 +44,7 @@ docs/       설계 문서와 구현 계획
 
 ## 배포 주소
 
-- 웹: https://web-production-aa0b9.up.railway.app
+- 웹: https://aigo.up.railway.app
 - API: https://api-production-68ccb.up.railway.app (상태 확인 `/api/v1/health`)
 
 ## 로컬 실행
@@ -93,7 +93,7 @@ api와 worker (`apps/api/.env.example`)
 | `S3_ENDPOINT_URL`, `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | 비공개 Bucket |
 | `S3_ADDRESSING_STYLE` | Railway Bucket은 `virtual`(path 주소에는 CORS 규칙이 적용되지 않는다), 로컬 moto는 기본값 `path` |
 | `CLERK_SECRET_KEY`, `CLERK_JWT_KEY` | Clerk 토큰 검증 |
-| `CLERK_AUTHORIZED_PARTIES` | 허용 출처 JSON 배열. 비우면 `WEB_ORIGIN` 하나 |
+| `CLERK_AUTHORIZED_PARTIES` | CORS와 Clerk 토큰이 함께 쓰는 웹 주소 JSON 배열. 비우면 `WEB_ORIGIN` 하나. 도메인을 추가하면 여기와 Bucket CORS에 함께 넣는다 |
 | `WEB_ORIGIN` | 웹 주소(CORS) |
 | `TOSS_SECRET_KEY` | `test_`로 시작하지 않으면 서버가 시작되지 않는다 |
 | `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_REASONING_EFFORT` | 분석 모델 |
@@ -124,7 +124,7 @@ railway up --service api --detach   # 저장소 루트에서 실행한다. web, 
 
 `railway up`은 작업 폴더를 그대로 올린다. 커밋하지 않은 변경이 있으면 `git archive HEAD`로 푼 폴더에서 `-p`, `-e`를 주고 실행한다.
 
-`NEXT_PUBLIC_*`를 바꾸면 web을 다시 빌드해야 한다. Bucket CORS의 AllowedOrigins는 웹 주소와 `http://localhost:3100`만 허용한다.
+`NEXT_PUBLIC_*`를 바꾸면 web을 다시 빌드해야 한다. Bucket CORS의 AllowedOrigins는 웹 주소들과 `http://localhost:3100`만 허용한다.
 
 ## 평가 결과
 

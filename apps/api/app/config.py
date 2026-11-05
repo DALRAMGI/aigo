@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     clerk_secret_key: str = ""
     clerk_jwt_key: str = ""
     web_origin: str = "http://localhost:3000"
-    # 비워 두면 web_origin 하나만 허용한다. 환경변수는 JSON 배열로 쓴다.
+    # CORS와 Clerk 토큰이 함께 쓰는 웹 주소 목록. 비워 두면 web_origin 하나만 허용한다. 환경변수는 JSON 배열로 쓴다.
     clerk_authorized_parties: list[str] = []
     toss_secret_key: str
     openai_api_key: str = ""
