@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { SignupForm } from "@/components/auth/SignupForm";
 
-export const metadata: Metadata = { title: "회원가입 | DashPi" };
+export const metadata: Metadata = { title: "회원가입 | AIGO" };
 
 export default async function SignupPage({ searchParams }: { searchParams: Promise<{ redirect_url?: string }> }) {
   const { redirect_url } = await searchParams;

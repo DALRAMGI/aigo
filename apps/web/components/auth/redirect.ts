@@ -1,4 +1,4 @@
-const STORE_KEY = "dashpi:after-auth";
+const STORE_KEY = "aigo:after-auth";
 
 /** 사이트 내부 경로만 허용한다. 그 밖(외부 URL, //host, 스킴)은 "/"로 돌린다. */
 export function safeRedirect(raw: string | null | undefined): string {

@@ -3,7 +3,7 @@ import { AccountPanel } from "@/components/auth/AccountPanel";
 import { Footer } from "@/components/ui/Footer";
 import { Nav } from "@/components/ui/Nav";
 
-export const metadata: Metadata = { title: "내 정보 | DashPi" };
+export const metadata: Metadata = { title: "내 정보 | AIGO" };
 
 export default function AccountPage() {
   return (
