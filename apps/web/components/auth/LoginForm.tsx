@@ -3,20 +3,21 @@
 import { useAuth, useSignIn } from "@clerk/nextjs";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Notice } from "@/components/ui/Notice";
 import { CodeForm } from "./CodeForm";
-import { navigateTo, safeRedirect } from "./redirect";
+import { clerkMessage } from "./clerkErrors";
+import { navigateTo, safeRedirect, TASK_MESSAGE } from "./redirect";
 import { SocialButtons } from "./SocialButtons";
 import { useAction } from "./useAction";
 
-export function LoginForm({ redirectUrl }: { redirectUrl?: string }) {
+export function LoginForm({ redirectUrl }: { redirectUrl?: string | string[] }) {
   const dest = safeRedirect(redirectUrl);
   const router = useRouter();
   const { isSignedIn } = useAuth();
-  const { signIn } = useSignIn();
+  const { signIn, errors } = useSignIn();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phase, setPhase] = useState<"form" | "code">("form");
@@ -26,7 +27,21 @@ export function LoginForm({ redirectUrl }: { redirectUrl?: string }) {
     if (isSignedIn) router.replace(dest);
   }, [isSignedIn, dest, router]);
 
-  const finish = () => signIn.finalize({ navigate: navigateTo(router.push, dest) });
+  const finish = () => signIn.finalize({ navigate: navigateTo(router.push, dest, () => login.fail(TASK_MESSAGE)) });
+
+  // 소셜 로그인에서 새 기기 확인이나 2단계가 남은 채 돌아오면 바로 코드 화면으로 간다.
+  const resumed = useRef(false);
+  useEffect(() => {
+    if (resumed.current || isSignedIn) return;
+    if (signIn.status !== "needs_client_trust" && signIn.status !== "needs_second_factor") return;
+    resumed.current = true;
+    void login.run(async () => {
+      const sent = await signIn.mfa.sendEmailCode();
+      if (sent.error) return sent;
+      setPhase("code");
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -45,6 +60,8 @@ export function LoginForm({ redirectUrl }: { redirectUrl?: string }) {
       throw new Error(`incomplete: ${signIn.status}`);
     });
   }
+
+  const hookError = errors?.global?.[0] ? clerkMessage(errors.global[0]) : null;
 
   if (phase === "code") {
     return (
@@ -78,7 +95,7 @@ export function LoginForm({ redirectUrl }: { redirectUrl?: string }) {
           onChange={(e) => setPassword(e.target.value)}
           required
         />
-        {login.error && <Notice tone="danger">{login.error}</Notice>}
+        {(login.error ?? hookError) && <Notice tone="danger">{login.error ?? hookError}</Notice>}
         <Button type="submit" size="lg" full loading={login.pending}>
           로그인
         </Button>

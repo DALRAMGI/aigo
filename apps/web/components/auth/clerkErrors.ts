@@ -17,6 +17,8 @@ const MESSAGES: Record<string, string> = {
   strategy_for_user_invalid: "이 계정은 다른 방식으로 로그인해야 합니다. 소셜 로그인을 사용해 보세요.",
   external_account_not_found: "연결된 소셜 계정을 찾지 못했습니다.",
   oauth_access_denied: "소셜 로그인이 취소되었습니다.",
+  protect_check_script_load_failed: "보안 확인을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
+  protect_check_execution_failed: "보안 확인을 마치지 못했습니다. 다시 시도해 주세요.",
   clerk_network_error: "서버에 연결하지 못했습니다. 네트워크를 확인해 주세요.",
   network_error: "서버에 연결하지 못했습니다. 네트워크를 확인해 주세요.",
 };
@@ -30,5 +32,6 @@ export function clerkMessage(error: unknown): string {
   // 새 훅은 ClerkError({code}), user.update 같은 리소스 메서드는 {errors: [{code}]}로 던진다.
   const e = error as { code?: string; errors?: { code?: string }[] } | null;
   const code = e?.code ?? e?.errors?.[0]?.code;
+  if (code?.startsWith("protect_check")) return MESSAGES.protect_check_execution_failed;
   return (code && MESSAGES[code]) || FALLBACK;
 }

@@ -7,6 +7,7 @@ import { SignupForm } from "./SignupForm";
 import { SocialButtons } from "./SocialButtons";
 import { clerkMessage } from "./clerkErrors";
 import { safeRedirect } from "./redirect";
+import SsoCallbackPage from "@/app/sso-callback/page";
 
 // user-event 의존성을 늘리지 않으려고 fireEvent로 감싼다.
 const userEvent = {
@@ -25,15 +26,21 @@ const m = vi.hoisted(() => ({
   signOut: vi.fn(),
   request: vi.fn(),
   push: vi.fn(),
+  signInErrors: { global: null } as Record<string, any>,
+  signUpErrors: { global: null } as Record<string, any>,
+  sso: null as any,
 }));
 
 vi.mock("@clerk/nextjs", () => ({
-  useSignIn: () => ({ signIn: m.signIn, errors: {}, fetchStatus: "idle" }),
-  useSignUp: () => ({ signUp: m.signUp, errors: {}, fetchStatus: "idle" }),
+  useSignIn: () => ({ signIn: m.signIn, errors: m.signInErrors, fetchStatus: "idle" }),
+  useSignUp: () => ({ signUp: m.signUp, errors: m.signUpErrors, fetchStatus: "idle" }),
   useUser: () => ({ isLoaded: true, user: m.user }),
   useClerk: () => ({ signOut: m.signOut }),
   useAuth: () => ({ isSignedIn: false }),
-  HandleSSOCallback: () => null,
+  HandleSSOCallback: (props: unknown) => {
+    m.sso = props;
+    return null;
+  },
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: m.push, replace: m.push }) }));
 vi.mock("next/link", () => ({ default: ({ href, ...p }: any) => <a href={href} {...p} /> }));
@@ -54,9 +61,20 @@ beforeEach(() => {
     mfa: { sendEmailCode: vi.fn(ok), verifyEmailCode: vi.fn(ok) },
     resetPasswordEmailCode: { sendCode: vi.fn(ok), verifyCode: vi.fn(ok), submitPassword: vi.fn(ok) },
   };
+  m.signInErrors = { global: null };
+  m.signUpErrors = { global: null };
+  sessionStorage.clear();
   m.signUp = {
-    status: "missing_requirements",
-    password: vi.fn(ok),
+    id: undefined,
+    status: null,
+    missingFields: [],
+    unverifiedFields: [],
+    reset: vi.fn(ok),
+    password: vi.fn(() => {
+      m.signUp.status = "missing_requirements";
+      m.signUp.unverifiedFields = ["email_address"];
+      return ok();
+    }),
     finalize: vi.fn(ok),
     verifications: { sendEmailCode: vi.fn(ok), verifyEmailCode: vi.fn(ok) },
   };
@@ -262,4 +280,104 @@ test("탈퇴 API가 실패하면 로그아웃하지 않는다", async () => {
   await user.click(screen.getByRole("button", { name: "회원 탈퇴" }));
   expect(await screen.findByRole("alert")).toBeTruthy();
   expect(m.signOut).not.toHaveBeenCalled();
+});
+
+test("소셜 로그인 뒤 새 기기 확인이 남아 있으면 로그인 화면이 바로 코드 단계로 간다", async () => {
+  m.signIn.status = "needs_client_trust";
+  render(<LoginForm />);
+  expect(await screen.findByLabelText("인증 코드")).toBeTruthy();
+  expect(m.signIn.mfa.sendEmailCode).toHaveBeenCalledTimes(1);
+  expect(screen.queryByLabelText("비밀번호")).toBeNull();
+});
+
+test("소셜 로그인 뒤 2단계 인증이 남아 있어도 코드 단계로 간다", async () => {
+  m.signIn.status = "needs_second_factor";
+  render(<LoginForm />);
+  expect(await screen.findByLabelText("인증 코드")).toBeTruthy();
+});
+
+test("Protect나 SSO 단계가 실패한 오류를 로그인과 가입 화면에 보여 준다", () => {
+  m.signInErrors = { global: [{ code: "protect_check_execution_failed", message: "Protect failed" }] };
+  render(<LoginForm />);
+  expect(screen.getByRole("alert").textContent).toMatch(/보안 확인/);
+  cleanup();
+  m.signUpErrors = { global: [{ code: "external_account_not_found", message: "x" }] };
+  render(<SignupForm />);
+  expect(screen.getByRole("alert").textContent).toMatch(/소셜 계정/);
+});
+
+test("진행 중인 가입에 비밀번호만 없으면 비밀번호 칸만 보여 준다", async () => {
+  const user = userEvent.setup();
+  Object.assign(m.signUp, { id: "s1", status: "missing_requirements", missingFields: ["password"], unverifiedFields: ["email_address"] });
+  render(<SignupForm />);
+  expect(screen.queryByLabelText("이메일")).toBeNull();
+  await user.type(screen.getByLabelText("비밀번호"), PASSWORD);
+  await user.click(screen.getByRole("button", { name: "가입 마치기" }));
+  expect(m.signUp.password).toHaveBeenCalledWith({ password: PASSWORD });
+  expect(await screen.findByLabelText("인증 코드")).toBeTruthy();
+});
+
+test("진행 중인 가입에 이메일 확인만 남았으면 코드 단계로 간다", async () => {
+  Object.assign(m.signUp, { id: "s1", status: "missing_requirements", missingFields: [], unverifiedFields: ["email_address"] });
+  render(<SignupForm />);
+  expect(await screen.findByLabelText("인증 코드")).toBeTruthy();
+  expect(m.signUp.verifications.sendEmailCode).toHaveBeenCalledTimes(1);
+});
+
+test("진행 중인 가입에 다른 항목이 비어 있으면 안내와 처음부터 다시 버튼을 보여 준다", async () => {
+  const user = userEvent.setup();
+  Object.assign(m.signUp, { id: "s1", status: "missing_requirements", missingFields: ["protect_check"], unverifiedFields: [] });
+  render(<SignupForm />);
+  expect(screen.getByRole("alert").textContent).toMatch(/처음부터 다시/);
+  await user.click(screen.getByRole("button", { name: "처음부터 다시" }));
+  expect(m.signUp.reset).toHaveBeenCalled();
+  expect(await screen.findByLabelText("이메일")).toBeTruthy();
+});
+
+test("Clerk Protect 오류 코드를 한국어로 바꾼다", () => {
+  expect(clerkMessage({ code: "protect_check_script_load_failed", message: "x" })).toMatch(/보안 확인/);
+  expect(clerkMessage({ code: "protect_check_whatever", message: "English" })).toMatch(/보안 확인/);
+});
+
+test("redirect_url이 배열이면 첫 값만 쓴다", () => {
+  expect(safeRedirect(["/account", "https://evil.com"])).toBe("/account");
+  expect(safeRedirect(["https://evil.com", "/account"])).toBe("/");
+});
+
+test("세션 작업이 남아 있으면 조용히 멈추지 않고 안내한다", async () => {
+  const user = userEvent.setup();
+  m.signIn.password.mockImplementation(() => {
+    m.signIn.status = "complete";
+    return ok();
+  });
+  m.signIn.finalize.mockImplementation(async ({ navigate }: any) => {
+    await navigate({ session: { currentTask: { key: "setup-mfa" } }, decorateUrl: (u: string) => u });
+    return { error: null };
+  });
+  render(<LoginForm />);
+  await user.type(screen.getByLabelText("이메일"), "a@b.co");
+  await user.type(screen.getByLabelText("비밀번호"), PASSWORD);
+  await user.click(screen.getByRole("button", { name: "로그인" }));
+  expect((await screen.findByRole("alert")).textContent).toMatch(/계정 설정/);
+  expect(m.push).not.toHaveBeenCalled();
+});
+
+test("sso-callback은 상태에 따라 앱, 로그인, 가입으로 보낸다", () => {
+  sessionStorage.setItem("aigo:after-auth", "/analyses");
+  render(<SsoCallbackPage />);
+  const done = { session: {}, decorateUrl: (u: string) => u };
+  m.sso.navigateToApp(done);
+  m.sso.navigateToApp(done); // 두 번 불려도 도착지가 같다
+  expect(m.push.mock.calls).toEqual([["/analyses"], ["/analyses"]]);
+  m.sso.navigateToSignIn();
+  m.sso.navigateToSignUp();
+  expect(m.push).toHaveBeenCalledWith("/login");
+  expect(m.push).toHaveBeenCalledWith("/signup");
+});
+
+test("sso-callback에서 세션 작업이 남아 있으면 안내를 보여 준다", async () => {
+  render(<SsoCallbackPage />);
+  await act(async () => m.sso.navigateToApp({ session: { currentTask: { key: "x" } }, decorateUrl: (u: string) => u }));
+  expect((await screen.findByRole("alert")).textContent).toMatch(/계정 설정/);
+  expect(m.push).not.toHaveBeenCalled();
 });

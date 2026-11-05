@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Notice } from "@/components/ui/Notice";
 import { CodeForm } from "./CodeForm";
-import { navigateTo } from "./redirect";
+import { navigateTo, TASK_MESSAGE } from "./redirect";
 import { PASSWORD_HINT } from "./SignupForm";
 import { useAction } from "./useAction";
 
@@ -39,7 +39,7 @@ export function ForgotPasswordForm() {
       const { error } = await signIn.resetPasswordEmailCode.submitPassword({ password, signOutOfOtherSessions: true });
       if (error) return { error };
       if (signIn.status !== "complete") throw new Error(`incomplete: ${signIn.status}`);
-      return signIn.finalize({ navigate: navigateTo(router.push, "/") });
+      return signIn.finalize({ navigate: navigateTo(router.push, "/", () => reset.fail(TASK_MESSAGE)) });
     });
   }
 

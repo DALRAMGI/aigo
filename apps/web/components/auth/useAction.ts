@@ -28,5 +28,5 @@ export function useAction() {
     }
   }
 
-  return { pending, error, run, clear: () => setError(null) };
+  return { pending, error, run, clear: () => setError(null), fail: setError };
 }
