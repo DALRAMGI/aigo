@@ -3,6 +3,7 @@ import { GeistMono } from "geist/font/mono";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import type { ReactNode } from "react";
+import { DesignProvider } from "@/components/ui/DesignToggle";
 import { DESIGN_COOKIE, parseDesign } from "@/lib/design";
 import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "./globals.css";
@@ -26,7 +27,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       </head>
       <body>
         <ClerkProvider signInUrl="/login" signUpUrl="/signup">
-          {children}
+          <DesignProvider design={design}>{children}</DesignProvider>
         </ClerkProvider>
       </body>
     </html>

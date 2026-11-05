@@ -1,8 +1,10 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { Badge } from "./Badge";
 import { Button, buttonClass } from "./Button";
 import { Card } from "./Card";
+import { DesignProvider } from "./DesignToggle";
 import { Field } from "./Field";
 import { Footer } from "./Footer";
 import { Marquee } from "./Marquee";
@@ -45,7 +47,6 @@ beforeEach(() => {
 afterEach(cleanup);
 
 test("디자인 토글은 쿠키를 쓰고 화면을 새로 받는다", () => {
-  document.documentElement.dataset.design = "classic";
   refresh.mockClear();
   render(<Nav />);
 
@@ -58,10 +59,25 @@ test("디자인 토글은 쿠키를 쓰고 화면을 새로 받는다", () => {
   expect(refresh).toHaveBeenCalledTimes(2);
 });
 
-test("디자인 토글은 서버가 내려 준 값으로 시작한다", () => {
-  document.documentElement.dataset.design = "poster";
-  render(<Nav />);
+test("디자인 토글은 첫 렌더부터 서버 값의 이름을 쓴다", () => {
+  const html = renderToString(
+    <DesignProvider design="poster">
+      <Nav />
+    </DesignProvider>,
+  );
 
+  expect(html).toContain('aria-label="기본 디자인으로 전환"');
+});
+
+test("디자인 토글은 새로고침으로 바뀐 서버 값을 따른다", () => {
+  const nav = (design: "classic" | "poster") => (
+    <DesignProvider design={design}>
+      <Nav />
+    </DesignProvider>
+  );
+  const { rerender } = render(nav("classic"));
+
+  rerender(nav("poster"));
   expect(screen.getByRole("button", { name: "기본 디자인으로 전환" })).toBeTruthy();
 });
 

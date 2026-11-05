@@ -1,15 +1,24 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { DESIGN_COOKIE, DESIGN_MAX_AGE, parseDesign, type Design } from "@/lib/design";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { DESIGN_COOKIE, DESIGN_MAX_AGE, type Design } from "@/lib/design";
 
-export function DesignToggle({ className = "" }: { className?: string }) {
+const DesignContext = createContext<Design>("classic");
+
+/** Nav는 여러 화면에서 인자 없이 쓰이므로 레이아웃이 읽은 서버 값을 컨텍스트로 내린다. */
+export function DesignProvider({ design, children }: { design: Design; children: ReactNode }) {
+  return <DesignContext value={design}>{children}</DesignContext>;
+}
+
+export const useDesign = () => useContext(DesignContext);
+
+export function DesignToggle({ design: server, className = "" }: { design: Design; className?: string }) {
   const router = useRouter();
-  const [design, setDesign] = useState<Design>("classic");
+  const [design, setDesign] = useState(server);
 
-  // 서버가 html에 내려 준 값을 따른다.
-  useEffect(() => setDesign(parseDesign(document.documentElement.dataset.design) ?? "classic"), []);
+  // 누른 뒤에는 바로 바꾸고, 새로고침이 끝나면 서버 값을 따른다.
+  useEffect(() => setDesign(server), [server]);
 
   const toggle = () => {
     const next: Design = design === "poster" ? "classic" : "poster";

@@ -63,9 +63,11 @@ test("토글로 바꾸면 다른 화면과 새로고침에도 유지되고 다�
   await expect(page.locator("h1")).toContainText("사고를 판정하는 AI가 아니라");
 });
 
-test("서버가 첫 HTML부터 data-design을 내려 깜빡이지 않는다", async ({ request }) => {
+test("서버가 첫 HTML부터 data-design과 토글 이름을 내려 깜빡이지 않는다", async ({ request }) => {
   const res = await request.get("/login", { headers: { cookie: "aigo-design=poster" } });
-  expect(await res.text()).toMatch(/<html[^>]*data-design="poster"/);
+  const html = await res.text();
+  expect(html).toMatch(/<html[^>]*data-design="poster"/);
+  expect(html).toContain('aria-label="기본 디자인으로 전환"');
 });
 
 test("잘못된 쿠키는 classic으로 읽는다", async ({ request }) => {
@@ -205,6 +207,115 @@ test("스크롤해도 Nav가 위에 붙어 있다", async ({ page, context, base
   await expect
     .poll(() => page.getByRole("navigation", { name: "주 메뉴" }).evaluate((el) => el.getBoundingClientRect().top))
     .toBe(0);
+});
+
+const shiftY = (page: Page, selector: string) =>
+  page.locator(selector).first().evaluate((el: HTMLElement) => {
+    const y = el.style.transform.match(/translate3d\(0(?:px)?, (-?[\d.]+)px/)?.[1];
+    return y === undefined ? null : Number(y);
+  });
+
+const scrollToY = async (page: Page, y: number) => {
+  await page.evaluate((top) => scrollTo(0, top), y);
+  await page.waitForFunction((top) => Math.abs(scrollY - top) < 2, y);
+};
+
+const STORY_TEXT = "#story :is(.pl-label, .pl-chapter-title, .pl-lead, .pl-card)";
+
+test("패럴랙스 층은 서로 다른 속도로 작게 움직인다", async ({ page, context, baseURL }) => {
+  await usePoster(context, baseURL);
+  await mockProducts(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await expect.poll(() => shiftY(page, ".pl-title")).toBe(0);
+
+  await scrollToY(page, 500);
+  await expect.poll(() => shiftY(page, ".pl-title")).toBeLessThan(0);
+  const title = (await shiftY(page, ".pl-title"))!;
+  const phone = (await shiftY(page, ".pl-phone-wrap"))!;
+  expect(phone).toBeLessThan(title);
+
+  await scrollToY(page, 5000);
+  await scrollToY(page, 850);
+  await expect.poll(() => shiftY(page, ".pl-title")).toBeLessThan(title);
+  expect(Math.abs((await shiftY(page, ".pl-phone-wrap"))!)).toBeLessThanOrEqual(900 * 0.12 + 1);
+
+  const word = page.locator(".pl-word").first();
+  const near = (await shiftY(page, ".pl-word"))!;
+  await scrollToY(page, 1200);
+  await expect.poll(() => shiftY(page, ".pl-word")).not.toBe(near);
+  await expect(word).toBeAttached();
+});
+
+test("이야기 글은 양방향으로 나타나고 위로 나가면 사라진다", async ({ page, context, baseURL }) => {
+  await usePoster(context, baseURL);
+  await mockProducts(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  const first = page.locator("#story .pl-chapter-title").first();
+  await expect(first).toHaveAttribute("data-fade", "below");
+  await expect(first).toHaveCSS("transition-timing-function", /^cubic-bezier\(0\.42, 0, 0\.58, 1\)/);
+
+  await first.evaluate((el) => el.closest("section")!.scrollIntoView({ block: "center" }));
+  await expect(first).toHaveAttribute("data-fade", "in");
+  await expect(first).toHaveCSS("opacity", "1");
+
+  await page.locator("#report").evaluate((el) => el.scrollIntoView());
+  await expect(first).toHaveAttribute("data-fade", "above");
+  await expect(first).toHaveCSS("opacity", "0");
+
+  await first.evaluate((el) => el.closest("section")!.scrollIntoView({ block: "center" }));
+  await expect(first).toHaveCSS("opacity", "1");
+});
+
+test("이야기 전체를 지나가면 모든 글이 한 번씩 온전히 보인다", async ({ page, context, baseURL }) => {
+  await usePoster(context, baseURL);
+  await mockProducts(page);
+  await page.goto("/");
+  for (const section of await page.locator("#story section").all()) {
+    await section.evaluate((el) => el.scrollIntoView({ block: "center" }));
+    for (const item of await section.locator(".pl-label, .pl-chapter-title, .pl-lead, .pl-card").all()) {
+      await expect(item).toBeInViewport();
+      await expect(item).toHaveCSS("opacity", "1");
+    }
+  }
+});
+
+test("reduced-motion에서는 패럴랙스와 페이드를 쓰지 않는다", async ({ page, context, baseURL }) => {
+  await usePoster(context, baseURL);
+  await mockProducts(page);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await page.locator("#report").evaluate((el) => el.scrollIntoView());
+  await page.waitForTimeout(100);
+
+  for (const layer of [".pl-title", ".pl-phone-wrap", ".pl-word"]) expect(await shiftY(page, layer)).toBeNull();
+  await expect(page.locator("[data-fade]")).toHaveCount(0);
+  for (const item of await page.locator(STORY_TEXT).all()) await expect(item).toHaveCSS("opacity", "1");
+});
+
+test("JavaScript 없이도 이야기 글이 보인다", async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  await usePoster(context, baseURL);
+  const page = await context.newPage();
+  await page.goto("/");
+  for (const item of await page.locator(STORY_TEXT).all()) await expect(item).toHaveCSS("opacity", "1");
+  await context.close();
+});
+
+test("360px에서는 패럴랙스가 절반이고 스크롤 내내 가로 넘침이 없다", async ({ page, context, baseURL }) => {
+  await usePoster(context, baseURL);
+  await mockProducts(page);
+  await page.setViewportSize({ width: 360, height: 780 });
+  await page.goto("/");
+  const height = await page.evaluate(() => document.documentElement.scrollHeight);
+  for (let y = 0; y < height; y += 400) {
+    await scrollToY(page, Math.min(y, height - 780));
+    expect(await overflow(page)).toBe(0);
+  }
+  await scrollToY(page, 730);
+  await expect.poll(() => shiftY(page, ".pl-phone-wrap")).toBeLessThan(0);
+  expect(Math.abs((await shiftY(page, ".pl-phone-wrap"))!)).toBeLessThanOrEqual(780 * 0.06 + 1);
 });
 
 test("사고 영상과 프레임이 없다", async ({ page, context, baseURL }) => {

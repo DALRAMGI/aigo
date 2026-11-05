@@ -5,6 +5,7 @@ import { Footer } from "@/components/ui/Footer";
 import { Nav } from "@/components/ui/Nav";
 import { Reveal } from "@/components/ui/Reveal";
 import { CountUp } from "./CountUp";
+import { PosterMotion } from "./PosterMotion";
 import { PosterProducts } from "./PosterProducts";
 import "./poster.css";
 
@@ -192,7 +193,7 @@ function Story() {
           <span aria-hidden className="pl-word">
             {chapter.word}
           </span>
-          <Reveal className="pl-chapter-grid">
+          <div className="pl-chapter-grid">
             <div>
               <p className="pl-label">{chapter.label}</p>
               <h2 className="pl-chapter-title">{chapter.title}</h2>
@@ -202,7 +203,7 @@ function Story() {
               <p className="pl-card-tag">예시</p>
               {chapter.card}
             </div>
-          </Reveal>
+          </div>
         </section>
       ))}
     </div>
@@ -283,6 +284,7 @@ function FinalCta() {
 export function PosterLanding() {
   return (
     <div data-surface="poster">
+      <PosterMotion />
       <Nav />
       <main>
         <Hero />

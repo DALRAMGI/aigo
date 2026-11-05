@@ -4,7 +4,7 @@ import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useId } from "react";
-import { DesignToggle } from "./DesignToggle";
+import { DesignToggle, useDesign } from "./DesignToggle";
 import { ThemeToggle } from "./ThemeToggle";
 
 const CELL = "flex items-center border-l border-line px-4 text-[13px] font-semibold whitespace-nowrap";
@@ -13,6 +13,7 @@ const INVERT =
 
 export function Nav() {
   const { isSignedIn } = useAuth();
+  const design = useDesign();
   const pathname = usePathname();
   const menuId = useId();
 
@@ -49,7 +50,10 @@ export function Nav() {
               </Link>
             ))}
           </div>
-          <DesignToggle className={`flex w-12 items-center justify-center border-l border-line text-muted ${INVERT}`} />
+          <DesignToggle
+            design={design}
+            className={`flex w-12 items-center justify-center border-l border-line text-muted ${INVERT}`}
+          />
           <ThemeToggle className={`flex w-12 items-center justify-center border-l border-line text-muted ${INVERT}`} />
           <Link
             href="/analyses/new"
