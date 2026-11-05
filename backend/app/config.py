@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     openai_reasoning_effort: str = "low"
     max_video_bytes: int = 209715200
     max_video_seconds: int = 120
+    yolo_weights: str = "yolo11n.pt"  # 없으면 ultralytics가 내려받는다. Docker는 빌드 때 넣는다.
     user_daily_limit: int = 5
     global_daily_limit: int = 100
 

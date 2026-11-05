@@ -13,6 +13,11 @@ dependencies = [
   "clerk-backend-api>=7.1.0",
   "cryptography>=50.0.2",
   "httpx",
+  "numpy",
+  "opencv-python-headless",
+  "torch",
+  "torchvision",
+  "ultralytics",
 ]
 
 [dependency-groups]
@@ -22,6 +27,21 @@ dev = [
     "moto[s3]>=5.2.5",
 ]
 
+[tool.uv]
+# ultralytics가 끌어오는 GUI용 opencv-python은 설치하지 않고 headless만 쓴다.
+override-dependencies = ["opencv-python; sys_platform == 'never'"]
+
+# Linux(Docker)는 CPU 전용 torch, macOS는 기본 wheel.
+[tool.uv.sources]
+torch = { index = "pytorch-cpu", marker = "sys_platform == 'linux'" }
+torchvision = { index = "pytorch-cpu", marker = "sys_platform == 'linux'" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
 [tool.pytest.ini_options]
+markers = ["model: 실제 YOLO 모델이 필요한 느린 테스트 (-m 'not model'로 제외)"]
 testpaths = ["tests"]
 pythonpath = ["."]
