@@ -32,6 +32,21 @@
       "expo-video",
       "expo-notifications",
       [
+        "expo-sharing",
+        {
+          "ios": {
+            "enabled": true,
+            "activationRule": {
+              "supportsMovieWithMaxCount": 1
+            }
+          },
+          "android": {
+            "enabled": true,
+            "singleShareMimeTypes": ["video/*"]
+          }
+        }
+      ],
+      [
         "expo-location",
         {
           "locationWhenInUsePermission": "사고 현장 사진에 촬영 위치를 함께 저장하기 위해 위치를 사용합니다."

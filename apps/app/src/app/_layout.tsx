@@ -1,7 +1,8 @@
 import { ClerkProvider, useAuth } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import * as Notifications from 'expo-notifications';
-import { Stack, useRouter } from 'expo-router';
+import { getSharedPayloads } from 'expo-sharing';
+import { Stack, usePathname, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { useApi } from '@/lib/api';
 import { analysisIdFrom, registerPush } from '@/lib/push';
@@ -10,6 +11,7 @@ function Routes() {
   const { isLoaded, isSignedIn } = useAuth();
   const api = useApi();
   const router = useRouter();
+  const pathname = usePathname();
   const last = Notifications.useLastNotificationResponse();
   const handled = useRef<string | null>(null);
 
@@ -17,6 +19,11 @@ function Routes() {
   useEffect(() => {
     if (isLoaded && isSignedIn) registerPush(api, false);
   }, [isLoaded, isSignedIn, api]);
+
+  // 로그인 전에 받은 공유 영상이 남아 있으면 로그인 뒤 공유 화면으로 돌아가 이어서 처리한다.
+  useEffect(() => {
+    if (isLoaded && isSignedIn && pathname !== '/share' && getSharedPayloads().length > 0) router.replace('/share');
+  }, [isLoaded, isSignedIn, pathname, router]);
 
   // 알림을 눌러 앱이 시작되면 Clerk가 로드되기 전에는 보호 구역이 닫혀 있다. 로그인이 확인된 뒤에 이동한다.
   useEffect(() => {
@@ -34,6 +41,7 @@ function Routes() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="scene" />
+      <Stack.Screen name="share" options={{ headerShown: true, title: '공유받은 영상' }} />
       <Stack.Protected guard={isLoaded && !!isSignedIn}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="upload" options={{ headerShown: true }} />
