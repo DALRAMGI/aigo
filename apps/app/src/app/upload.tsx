@@ -1,5 +1,6 @@
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as ImagePicker from 'expo-image-picker';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ScrollView, Switch, Text, View } from 'react-native';
@@ -7,13 +8,14 @@ import { FailureNotice } from '@/components/analysis';
 import { Button, ErrorText } from '@/components/ui';
 import { FAILURES } from '@/lib/analysis';
 import { ApiFailure, useApi } from '@/lib/api';
-import { checkVideo, fileSize, isTicketExpired, uploadVideo, videoName, type UploadTicket } from '@/lib/upload';
+import { checkTrim, checkVideo, fileSize, isTicketExpired, uploadVideo, videoName, type UploadTicket } from '@/lib/upload';
 
 const CONSENT_TEXT = '영상에는 번호판과 얼굴이 담길 수 있고, 분석을 위해 프레임이 OpenAI로 전송되며, 분석을 삭제하면 파일까지 지웁니다.';
 const KEEP_AWAKE_TAG = 'aigo-upload';
 const mb = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+const sec = (t: number | null) => (t === null ? '-' : `${t.toFixed(1)}초`);
 
-type Picked = { uri: string; name: string; size: number; mime: string };
+type Picked = { uri: string; name: string; size: number; mime: string; duration: number | null }; // duration은 초. 모르면 null
 type Phase = 'idle' | 'uploading' | 'submitting';
 type Attempt = { uri: string; ticket: UploadTicket; uploaded: boolean };
 
@@ -35,8 +37,11 @@ export default function UploadScreen() {
   const [phase, setPhase] = useState<Phase>('idle');
   const [percent, setPercent] = useState(0);
   const [failure, setFailure] = useState<{ code: string; message: string } | null>(null);
+  const [trim, setTrim] = useState<{ start: number | null; end: number | null }>({ start: null, end: null });
   const attempt = useRef<Attempt | null>(null);
   const abort = useRef(new AbortController());
+
+  const player = useVideoPlayer(file?.uri ?? null);
 
   useEffect(() => () => abort.current.abort(), []);
 
@@ -45,18 +50,19 @@ export default function UploadScreen() {
     setFile(problem ? null : next);
     setFileError(problem);
     setFailure(null);
+    setTrim({ start: null, end: null });
   };
 
   // 다른 화면(공유 메뉴, 구간 자르기)이 넘긴 파일. 크기와 이름이 없으면 여기서 구한다.
   const { uri, name, size } = params;
   useEffect(() => {
-    if (uri) choose({ uri, name: videoName(uri, name), size: Number(size) || sizeOf(uri), mime: '' });
+    if (uri) choose({ uri, name: videoName(uri, name), size: Number(size) || sizeOf(uri), mime: '', duration: null });
   }, [uri, name, size]);
 
   async function pick() {
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos'] });
     const a = res.canceled ? null : res.assets[0];
-    if (a) choose({ uri: a.uri, name: videoName(a.uri, a.fileName, a.mimeType), size: a.fileSize || sizeOf(a.uri), mime: a.mimeType ?? '' });
+    if (a) choose({ uri: a.uri, name: videoName(a.uri, a.fileName, a.mimeType), size: a.fileSize || sizeOf(a.uri), mime: a.mimeType ?? '', duration: a.duration ? a.duration / 1000 : null });
   }
 
   async function start() {
@@ -71,7 +77,7 @@ export default function UploadScreen() {
       if (!a || a.uri !== file.uri || (!a.uploaded && isTicketExpired(a.ticket, new Date()))) {
         const ticket = await api<UploadTicket>('/api/v1/analyses', {
           method: 'POST',
-          body: JSON.stringify({ filename: file.name, size: file.size, content_type: file.mime, consent }),
+          body: JSON.stringify({ filename: file.name, size: file.size, content_type: file.mime, consent, ...(trim.start !== null && trim.end !== null && { trim_start: trim.start, trim_end: trim.end }) }),
         });
         a = attempt.current = { uri: file.uri, ticket, uploaded: false };
       }
@@ -95,6 +101,9 @@ export default function UploadScreen() {
 
   const busy = phase !== 'idle';
   const blocked = !!failure && !!FAILURES[failure.code]?.final;
+  // 분석을 이미 만들었으면 구간을 바꿀 수 없다. 바꾸면 새 분석이 필요하고 하루 한도를 또 쓴다.
+  const locked = busy || (!!failure && attempt.current?.uri === file?.uri);
+  const trimProblem = file ? checkTrim(file.duration, trim) : '';
 
   return (
     <ScrollView contentContainerStyle={{ padding: 24, gap: 12 }}>
@@ -106,6 +115,28 @@ export default function UploadScreen() {
         </Text>
       ) : null}
       <ErrorText>{fileError}</ErrorText>
+      {file ? (
+        <>
+          <VideoView player={player} nativeControls style={{ width: '100%', aspectRatio: 16 / 9 }} />
+          <Text>
+            구간 {sec(trim.start)} ~ {sec(trim.end)}
+            {file.duration !== null ? ` · 전체 ${sec(file.duration)}` : ''}
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={{ flex: 1 }}>
+              <Button label="시작으로" secondary disabled={locked} onPress={() => setTrim((t) => ({ ...t, start: player.currentTime }))} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Button label="끝으로" secondary disabled={locked} onPress={() => setTrim((t) => ({ ...t, end: player.currentTime }))} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Button label="지우기" secondary disabled={locked} onPress={() => setTrim({ start: null, end: null })} />
+            </View>
+          </View>
+          {locked && !busy ? <Text style={{ color: '#666' }}>이미 올리기를 시작해 구간을 바꿀 수 없습니다. 바꾸려면 다른 영상을 고르세요.</Text> : null}
+          <ErrorText>{trimProblem}</ErrorText>
+        </>
+      ) : null}
       <Text style={{ color: '#666' }}>mp4, mov, webm, avi · 200MB · 2분 이하</Text>
 
       <Text style={{ fontWeight: '700' }}>올리기 전에 확인하세요</Text>
@@ -119,7 +150,7 @@ export default function UploadScreen() {
       {phase === 'submitting' ? <Text>분석 대기열에 넣는 중</Text> : null}
       {failure ? <FailureNotice {...failure} /> : null}
 
-      <Button label={failure ? '다시 시도' : '올리고 분석 시작'} disabled={!file || !consent || busy || blocked} onPress={start} />
+      <Button label={failure ? '다시 시도' : '올리고 분석 시작'} disabled={!file || !consent || busy || blocked || !!trimProblem} onPress={start} />
     </ScrollView>
   );
 }

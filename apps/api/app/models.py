@@ -106,6 +106,8 @@ class Analysis(Base):
     playback_key: Mapped[str | None] = mapped_column(String(300))
     source_size: Mapped[int | None] = mapped_column(BigInteger)  # 클라이언트가 알린 업로드 크기
     duration_sec: Mapped[float | None]
+    trim_start: Mapped[float | None]  # 선택한 구간(초). 둘 다 있거나 둘 다 없다. 재시도해도 유지한다.
+    trim_end: Mapped[float | None]
     report: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     trace: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     progress: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
@@ -125,3 +127,4 @@ class Analysis(Base):
         self.report = self.trace = None
         self.progress = {}
         self.source_key = self.playback_key = self.source_size = self.error_code = None
+        self.trim_start = self.trim_end = None

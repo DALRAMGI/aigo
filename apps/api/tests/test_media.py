@@ -117,3 +117,59 @@ def test_extract_frames_ignores_stale_files(tmp_path):
     (out / "000099.jpg").write_bytes(b"stale")
     assert len(extract_frames(a, 5, out)) == 5
     assert not (out / "000099.jpg").exists()
+
+
+def _len(path):
+    return float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",
+                                 str(path)], capture_output=True, text=True, check=True).stdout)
+
+
+def _astream_len(path):
+    return float(subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a:0", "-show_entries",
+                                 "stream=duration", "-of", "csv=p=0", str(path)],
+                                capture_output=True, text=True, check=True).stdout)
+
+
+def test_normalize_cuts_requested_range(tmp_path):
+    src = mk.testsrc(tmp_path / "s.mp4", seconds=10)
+    a, p = tmp_path / "a.mp4", tmp_path / "p.mp4"
+    info = normalize(src, a, p, 120, trim=(2.5, 6.0))
+    assert info.duration == pytest.approx(3.5, abs=0.2)
+    assert _len(p) == pytest.approx(3.5, abs=0.2) and _astream_len(a) == pytest.approx(3.5, abs=0.2)
+    # 첫 프레임이 원본 2.5초 부근인지(시작 지점이 맞는지)를 영상 내용으로 확인한다.
+    ref, cut = tmp_path / "ref.png", tmp_path / "cut.png"
+    for f, args in ((ref, ["-ss", "2.5", "-i", str(src)]), (cut, ["-i", str(a)])):
+        subprocess.run(["ffmpeg", "-v", "error", "-y", *args, "-frames:v", "1", str(f)], check=True)
+    d = cv2.absdiff(cv2.imread(str(ref)), cv2.imread(str(cut)))
+    assert d.mean() < 3
+
+
+def test_normalize_allows_long_source_when_trim_fits(tmp_path):
+    src = mk.testsrc(tmp_path / "s.mp4", seconds=5)
+    info, _, _ = _norm_trim(src, tmp_path, max_seconds=2, trim=(1.0, 3.0))
+    assert info.duration == pytest.approx(2.0, abs=0.2)
+
+
+def _norm_trim(src, tmp_path, max_seconds, trim):
+    a, p = tmp_path / "a.mp4", tmp_path / "p.mp4"
+    return normalize(src, a, p, max_seconds, trim=trim), a, p
+
+
+def test_normalize_clamps_trim_end_to_video_end(tmp_path):
+    src = mk.testsrc(tmp_path / "s.mp4", seconds=4)
+    info, _, _ = _norm_trim(src, tmp_path, 120, (2.0, 50.0))
+    assert info.duration == pytest.approx(2.0, abs=0.2)
+
+
+def test_normalize_fails_when_trim_starts_after_end_of_video(tmp_path):
+    src = mk.testsrc(tmp_path / "s.mp4", seconds=3)
+    with pytest.raises(PipelineError) as e:
+        _norm_trim(src, tmp_path, 120, (5.0, 8.0))
+    assert e.value.code == "INVALID_TRIM"
+
+
+def test_normalize_without_trim_still_rejects_long_video(tmp_path):
+    src = mk.testsrc(tmp_path / "s.mp4", seconds=3)
+    with pytest.raises(PipelineError) as e:
+        _norm(src, tmp_path, max_seconds=1)
+    assert e.value.code == "VIDEO_TOO_LONG"

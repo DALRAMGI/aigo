@@ -31,6 +31,7 @@ class Context:
     llm: Any
     table: Any
     on_stage: Callable[..., None]  # (stage, detail=None, status="done")
+    trim: tuple[float, float] | None = None  # 원본 기준 (시작, 끝) 초
 
 
 @dataclass
@@ -66,7 +67,7 @@ def run_pipeline(ctx: Context) -> PipelineResult:
     video, playback = ctx.workdir / "analysis.mp4", ctx.workdir / "playback.mp4"
     with stage("normalize") as d:
         source = next(ctx.workdir.glob("source.*"))
-        info = normalize(source, video, playback, settings.max_video_seconds)
+        info = normalize(source, video, playback, settings.max_video_seconds, ctx.trim)
         d.update(duration=round(info.duration, 1), width=info.width, height=info.height)
 
     scan_failed = False

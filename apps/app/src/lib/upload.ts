@@ -34,6 +34,23 @@ export function checkVideo(name: string, size: number): string {
   return '';
 }
 
+export const MAX_SECONDS = 120; // 서버 기본값과 같다. 서버가 다시 확인한다.
+export type Trim = { start: number | null; end: number | null };
+
+/**
+ * 구간 선택의 문제를 문구로, 없으면 빈 문자열을 돌려준다.
+ * 길이를 모르면(duration null) 막지 않고 서버 오류를 그대로 보여 준다. 120초를 넘는 영상은 구간이 필요하다.
+ */
+export function checkTrim(duration: number | null, { start, end }: Trim): string {
+  if (start === null && end === null) {
+    return duration !== null && duration > MAX_SECONDS ? `영상이 ${MAX_SECONDS}초보다 깁니다. 분석할 구간을 골라 주세요.` : '';
+  }
+  if (start === null || end === null) return '구간의 시작과 끝을 모두 정해 주세요.';
+  if (end <= start) return '구간의 끝은 시작보다 뒤여야 합니다.';
+  if (end - start > MAX_SECONDS) return `구간은 ${MAX_SECONDS}초 이하여야 합니다. 지금은 ${Math.round(end - start)}초입니다.`;
+  return '';
+}
+
 /** 파일을 읽지 않고 크기만 구한다. file://, content:// 모두 expo-file-system이 처리한다. */
 export const fileSize = (uri: string): number => new File(uri).size;
 

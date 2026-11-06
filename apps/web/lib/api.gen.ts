@@ -202,6 +202,10 @@ export interface components {
             content_type: string;
             /** Consent */
             consent: boolean;
+            /** Trim Start */
+            trim_start?: number | null;
+            /** Trim End */
+            trim_end?: number | null;
         };
         /** AnalysisList */
         AnalysisList: {
@@ -419,6 +423,12 @@ export interface components {
              */
             likelihood: "high" | "medium" | "low" | "unknown";
             evidence: components["schemas"]["Evidence"] | null;
+            /**
+             * Party
+             * @default unknown
+             * @enum {string}
+             */
+            party: "me" | "other" | "unknown";
         };
         /** StageOut */
         StageOut: {
