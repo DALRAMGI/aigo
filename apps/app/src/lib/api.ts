@@ -44,7 +44,13 @@ export async function apiRequest<T>(getToken: GetToken, path: string, init: Requ
   let res = await send(await getToken());
   if (res.status === 401) res = await send(await getToken({ skipCache: true }));
   if (!res.ok) throw await toApiFailure(res);
-  return (res.status === 204 ? undefined : await res.json()) as T;
+  if (res.status === 204) return undefined as T;
+  // 프록시 오류 페이지 같은 2xx 비JSON 본문이 SyntaxError로 새지 않게 한다.
+  try {
+    return (await res.json()) as T;
+  } catch {
+    throw new ApiFailure(res.status, 'INVALID_RESPONSE', FALLBACK_MESSAGE);
+  }
 }
 
 export function useApi() {

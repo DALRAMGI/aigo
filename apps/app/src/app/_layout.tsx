@@ -10,6 +10,8 @@ function Routes() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Protected guard={!!isSignedIn}>
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="upload" options={{ headerShown: true }} />
+        <Stack.Screen name="analyses/[id]" options={{ headerShown: true }} />
       </Stack.Protected>
       <Stack.Protected guard={!isSignedIn}>
         <Stack.Screen name="(auth)" />
