@@ -52,6 +52,16 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), **_now)
 
 
+class PushDevice(Base):
+    __tablename__ = "push_devices"
+
+    token: Mapped[str] = mapped_column(String(255), primary_key=True)
+    # 탈퇴하면 함께 지운다.
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    platform: Mapped[str] = mapped_column(String(10))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
 class Product(Base):
     __tablename__ = "products"
 

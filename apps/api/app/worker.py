@@ -17,6 +17,7 @@ from app.fault import FaultTable
 from app.llm import LLM
 from app.models import Analysis, AnalysisStatus, Stage
 from app.pipeline.run import PIPELINE_VERSION, Context, PipelineError, PipelineResult, run_pipeline
+from app.push import notify_analysis
 from app.storage import Storage
 
 log = logging.getLogger("worker")
@@ -77,13 +78,17 @@ def requeue_stale(db: Session, now: datetime) -> int:
     rows = db.scalars(select(Analysis).where(
         Analysis.status == AnalysisStatus.processing, Analysis.deleted_at.is_(None),
         Analysis.heartbeat_at < now - STALE_AFTER).with_for_update(skip_locked=True)).all()
+    final = []
     for a in rows:
         if a.attempts < MAX_ATTEMPTS:
             a.status, a.stage, a.progress = AnalysisStatus.queued, None, {}
         else:
             a.status, a.error_code, a.finished_at = AnalysisStatus.failed, "WORKER_TIMEOUT", now
             a.progress = {**(a.progress or {}), "error": {"message": "분석 시간이 너무 오래 걸렸습니다. 다시 올려 주세요."}}
+            final.append((a.user_id, a.id))
     db.commit()
+    for user_id, aid in final:  # 재시도로 넘어간 건 보내지 않는다.
+        notify_analysis(db, user_id, aid, False)
     return len(rows)
 
 
@@ -105,7 +110,9 @@ def _fail(db: Session, analysis_id: int, attempt: int, code: str, message: str, 
     a.status, a.error_code, a.finished_at, a.trace = AnalysisStatus.failed, code, quota._now(), trace
     # 사용자 메시지는 progress["error"]에 둔다. API의 단계 목록은 Stage 키만 읽으므로 섞이지 않는다.
     a.progress = {**(a.progress or {}), "error": {"message": message}}
+    user_id = a.user_id
     db.commit()
+    notify_analysis(db, user_id, analysis_id, False)  # 재시도 경로가 없는 최종 실패다.
 
 
 def _finish(db: Session, storage: Storage, aid: int, attempt: int, res: PipelineResult, workdir: Path) -> None:
@@ -128,7 +135,9 @@ def _finish(db: Session, storage: Storage, aid: int, attempt: int, res: Pipeline
         return
     a.playback_key, a.report, a.trace = f"{prefix}/playback.mp4", res.report.model_dump(mode="json"), res.trace
     a.pipeline_version, a.status, a.finished_at = PIPELINE_VERSION, AnalysisStatus.done, quota._now()
+    user_id = a.user_id
     db.commit()
+    notify_analysis(db, user_id, aid, True)
 
 
 def process(db: Session, a: Analysis, storage: Storage, pipeline: Callable = run_pipeline,

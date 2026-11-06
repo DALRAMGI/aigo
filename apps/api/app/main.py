@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.errors import install_error_handlers
-from app.routes import analyses, me, orders, products
+from app.routes import analyses, devices, me, orders, products
 
 
 def create_app() -> FastAPI:
@@ -21,6 +21,7 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(me.router, prefix="/api/v1")
+    app.include_router(devices.router, prefix="/api/v1")
     app.include_router(products.router, prefix="/api/v1")
     app.include_router(analyses.router, prefix="/api/v1")
     app.include_router(orders.router, prefix="/api/v1")
