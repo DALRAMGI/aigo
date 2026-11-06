@@ -279,3 +279,19 @@ def test_stale_worker_cannot_write_while_newer_attempt_runs(db, user, storage):
     assert a.status == AnalysisStatus.processing and a.attempts == 2 and a.report is None
     assert "scan" not in a.progress and storage.head(f"analyses/{a.id}/playback.mp4") is None
 
+
+
+def test_trim_reaches_pipeline_context(db, user, storage):
+    a = mk(db, user, trim_start=2.5, trim_end=9.0)
+    put_source(storage, a)
+    got = []
+
+    def pipe(ctx):
+        got.append(ctx.trim)
+        return ok_pipeline(ctx)
+
+    worker.process(db, worker.claim_next(db), storage, pipe)
+    mk2 = mk(db, user)
+    put_source(storage, mk2)
+    worker.process(db, worker.claim_next(db), storage, pipe)
+    assert got == [(2.5, 9.0), None]

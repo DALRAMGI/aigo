@@ -264,3 +264,44 @@ def test_openapi_exposes_typed_report(client):
     ref = spec["paths"]["/api/v1/analyses/{analysis_id}"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
     assert ref["$ref"].endswith("/AnalysisOut")
     assert "Report" in spec["components"]["schemas"] and "FaultAssessment" in spec["components"]["schemas"]
+
+
+@pytest.mark.parametrize("trim", [
+    {"trim_start": 10, "trim_end": 5},
+    {"trim_start": 5, "trim_end": 5},
+    {"trim_start": -1, "trim_end": 5},
+    {"trim_start": 0, "trim_end": 0.00001},
+])
+def test_create_rejects_trim_start_after_end(client, trim):
+    r = create(client, **trim)
+    assert r.status_code == 400 and r.json()["code"] == "INVALID_TRIM"
+    assert set(r.json()) == {"code", "message"}
+
+
+@pytest.mark.parametrize("trim", [{"trim_start": 1}, {"trim_end": 5}])
+def test_create_rejects_only_one_trim_value(client, trim):
+    r = create(client, **trim)
+    assert r.status_code == 400 and r.json()["code"] == "INVALID_TRIM"
+
+
+def test_create_rejects_trim_longer_than_limit(client):
+    r = create(client, trim_start=0, trim_end=settings.max_video_seconds + 1)
+    assert r.status_code == 400 and r.json()["code"] == "INVALID_TRIM"
+
+
+def test_create_rejects_non_finite_trim(client):
+    body = '{"filename":"a.mp4","size":1000,"consent":true,"trim_start":0,"trim_end":Infinity}'
+    r = client.post(P, content=body, headers={**auth(), "Content-Type": "application/json"})
+    assert r.status_code == 400 and r.json()["code"] == "INVALID_TRIM"
+    body = body.replace("Infinity", "NaN")
+    r = client.post(P, content=body, headers={**auth(), "Content-Type": "application/json"})
+    assert r.status_code == 400 and r.json()["code"] == "INVALID_TRIM"
+
+
+def test_create_stores_trim_and_allows_exact_limit(client, db):
+    r = create(client, trim_start=30.5, trim_end=30.5 + settings.max_video_seconds)
+    assert r.status_code == 201
+    a = db.get(Analysis, r.json()["id"])
+    assert (a.trim_start, a.trim_end) == (30.5, 30.5 + settings.max_video_seconds)
+    b = db.get(Analysis, create(client).json()["id"])
+    assert b.trim_start is None and b.trim_end is None

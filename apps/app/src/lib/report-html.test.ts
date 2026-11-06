@@ -22,7 +22,7 @@ const base: Report = {
     unknown: [evil],
   },
   fault_note: evil,
-  serious_violations: [{ item: evil, likelihood: 'low', evidence: { t: 3, text: evil } }],
+  serious_violations: [{ item: evil, likelihood: 'low', evidence: { t: 3, text: evil }, party: 'unknown' }],
   favorable: [evil],
   unfavorable: [evil],
   actions_now: [evil],

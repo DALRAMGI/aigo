@@ -1,3 +1,4 @@
+import math
 from datetime import datetime, timedelta
 from pathlib import PurePosixPath
 
@@ -17,6 +18,7 @@ from app.storage import Storage, get_storage
 
 router = APIRouter()
 UPLOAD_TTL_S = 900
+MIN_TRIM_S = 1
 CONTENT_TYPES = {".mp4": "video/mp4", ".mov": "video/quicktime", ".webm": "video/webm", ".avi": "video/x-msvideo"}
 
 
@@ -25,6 +27,8 @@ class AnalysisIn(BaseModel):
     size: int = Field(ge=1)
     content_type: str = Field(default="", max_length=100)  # 참고용. 실제 값은 확장자로 정한다.
     consent: bool
+    trim_start: float | None = None  # 초. trim_end와 함께 보내거나 둘 다 생략한다.
+    trim_end: float | None = None
 
 
 class StageOut(BaseModel):
@@ -94,11 +98,25 @@ def _out(a: Analysis, storage: Storage) -> dict:
     }
 
 
+def _check_trim(start: float | None, end: float | None) -> None:
+    if start is None and end is None:
+        return
+    if start is None or end is None or not (math.isfinite(start) and math.isfinite(end)):
+        raise ApiError(400, "INVALID_TRIM", "구간의 시작과 끝을 모두 올바른 숫자로 보내 주세요.")
+    if not 0 <= start < end:
+        raise ApiError(400, "INVALID_TRIM", "구간의 끝은 시작보다 뒤여야 합니다.")
+    if end - start < MIN_TRIM_S:
+        raise ApiError(400, "INVALID_TRIM", f"구간은 {MIN_TRIM_S}초 이상이어야 합니다.")
+    if end - start > settings.max_video_seconds:
+        raise ApiError(400, "INVALID_TRIM", f"구간은 {settings.max_video_seconds}초 이하여야 합니다.")
+
+
 @router.post("/analyses", status_code=201, response_model=UploadTicket)
 def create_analysis(body: AnalysisIn, user: User = Depends(current_user), db: Session = Depends(get_db),
                     storage: Storage = Depends(get_storage)):
     if not body.consent:
         raise ApiError(400, "CONSENT_REQUIRED", "영상 분석에 동의해야 업로드할 수 있습니다.")
+    _check_trim(body.trim_start, body.trim_end)
     ext = PurePosixPath(body.filename).suffix.lower()
     if ext not in CONTENT_TYPES:
         raise ApiError(400, "UNSUPPORTED_VIDEO", "mp4, mov, webm, avi 영상만 올릴 수 있습니다.")
@@ -107,7 +125,8 @@ def create_analysis(body: AnalysisIn, user: User = Depends(current_user), db: Se
     try:
         now = quota._now()
         quota.reserve_analysis(db, user, now)
-        a = Analysis(user_id=user.id, created_at=now, consent_at=now, source_size=body.size)
+        a = Analysis(user_id=user.id, created_at=now, consent_at=now, source_size=body.size,
+                     trim_start=body.trim_start, trim_end=body.trim_end)
         db.add(a)
         db.flush()
         a.source_key = f"analyses/{a.id}/source{ext}"

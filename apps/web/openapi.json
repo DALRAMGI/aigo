@@ -555,6 +555,28 @@
           "consent": {
             "type": "boolean",
             "title": "Consent"
+          },
+          "trim_start": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trim Start"
+          },
+          "trim_end": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trim End"
           }
         },
         "type": "object",
@@ -1239,6 +1261,16 @@
                 "type": "null"
               }
             ]
+          },
+          "party": {
+            "type": "string",
+            "enum": [
+              "me",
+              "other",
+              "unknown"
+            ],
+            "title": "Party",
+            "default": "unknown"
           }
         },
         "type": "object",

@@ -71,13 +71,20 @@ def probe(path: Path) -> VideoInfo:
     return VideoInfo(duration, w, h, any(s["codec_type"] == "audio" for s in streams))
 
 
-def normalize(src: Path, dst_analysis: Path, dst_playback: Path, max_seconds: int) -> VideoInfo:
-    """분석용(원본 해상도, 30fps 고정 H.264)과 재생용(짧은 변 720 이하)을 만든다."""
+def normalize(src: Path, dst_analysis: Path, dst_playback: Path, max_seconds: int,
+              trim: tuple[float, float] | None = None) -> VideoInfo:
+    """분석용(원본 해상도, 30fps 고정 H.264)과 재생용(짧은 변 720 이하)을 만든다. trim은 원본 기준 (시작, 끝) 초."""
     info = probe(src)
-    if info.duration > max_seconds:
+    start, end = trim or (0.0, info.duration)
+    length = min(end, info.duration) - start
+    if length <= 0:
+        raise PipelineError("INVALID_TRIM", "선택한 구간이 영상 길이를 벗어났습니다. 구간을 다시 골라 주세요.")
+    if length > max_seconds:
         raise PipelineError("VIDEO_TOO_LONG", f"영상이 너무 깁니다. {max_seconds}초 이하의 영상만 분석할 수 있습니다.")
+    # 입력 앞의 -ss는 변환할 때 프레임 단위로 정확히 자른다. -to 대신 -t(길이)를 써서 의미가 모호하지 않게 한다.
+    cut = ["-ss", f"{start:.3f}", "-t", f"{length:.3f}"] if trim else []  # 1e-05 같은 표기는 ffmpeg가 거부한다.
     # setpts로 시작 오프셋을 0으로 맞춰야 프레임 번호 / 30 = 시각이 된다.
-    _run(["ffmpeg", "-v", "error", "-y", "-i", str(src),
+    _run(["ffmpeg", "-v", "error", "-y", *cut, "-i", str(src),
           "-vf", f"setpts=PTS-STARTPTS,fps={FPS},scale=trunc(iw/2)*2:trunc(ih/2)*2",
           "-af", "aresample=async=1:first_pts=0",
           "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p",

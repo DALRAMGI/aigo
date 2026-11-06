@@ -146,7 +146,8 @@ def process(db: Session, a: Analysis, storage: Storage, pipeline: Callable = run
             workdir = Path(tmp)
             storage.download(a.source_key, workdir / f"source{PurePosixPath(a.source_key).suffix}")
             ctx = Context(aid, workdir, storage, llm, table or FaultTable.load(), lambda stage, detail=None, status="done":
-                          set_stage(db, aid, stage, detail, status, attempt))
+                          set_stage(db, aid, stage, detail, status, attempt),
+                          (a.trim_start, a.trim_end) if a.trim_start is not None else None)
             _finish(db, storage, aid, attempt, pipeline(ctx), workdir)
     except PipelineError as e:
         db.rollback()

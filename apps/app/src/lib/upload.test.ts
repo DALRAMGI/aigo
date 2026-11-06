@@ -8,7 +8,7 @@ jest.mock('expo-file-system', () => ({
   UploadType: { BINARY_CONTENT: 0 },
 }));
 
-import { checkVideo, isTicketExpired, MAX_BYTES, uploadVideo, videoName, type UploadTicket } from './upload';
+import { checkTrim, checkVideo, isTicketExpired, MAX_BYTES, uploadVideo, videoName, type UploadTicket } from './upload';
 
 const ticket: UploadTicket = {
   id: 7,
@@ -69,4 +69,26 @@ test('확장자, 빈 파일, 200MB를 확인한다', () => {
   expect(checkVideo('a.mp4', 0)).toMatch(/빈 파일/);
   expect(checkVideo('a.mp4', MAX_BYTES + 1)).toMatch(/200MB/);
   expect(checkVideo('a.mp4', MAX_BYTES)).toBe('');
+});
+
+describe('checkTrim', () => {
+  const none = { start: null, end: null };
+  test('short_or_unknown_video_needs_no_trim', () => {
+    expect(checkTrim(120, none)).toBe('');
+    expect(checkTrim(null, none)).toBe('');
+  });
+  test('trim_shorter_than_one_second_is_rejected', () => {
+    expect(checkTrim(20, { start: 3, end: 3.5 })).toBe('구간은 1초 이상이어야 합니다.');
+  });
+  test('long_video_requires_trim', () => {
+    expect(checkTrim(121, none)).toContain('구간을 골라');
+    expect(checkTrim(300, { start: 10, end: 70 })).toBe('');
+  });
+  test('rejects_incomplete_reversed_and_too_long_trim', () => {
+    expect(checkTrim(60, { start: 5, end: null })).toContain('모두');
+    expect(checkTrim(60, { start: null, end: 5 })).toContain('모두');
+    expect(checkTrim(60, { start: 9, end: 9 })).toContain('뒤여야');
+    expect(checkTrim(300, { start: 0, end: 120 })).toBe('');
+    expect(checkTrim(300, { start: 0, end: 120.5 })).toContain('120초 이하');
+  });
 });

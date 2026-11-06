@@ -36,9 +36,9 @@ export const PARTY: Report = {
   },
   fault_note: null,
   serious_violations: [
-    { item: "신호위반", likelihood: "low", evidence: FACTS[1] },
-    { item: "음주운전", likelihood: "unknown", evidence: null },
-    { item: "제한속도 20km/h 초과", likelihood: "unknown", evidence: null },
+    { item: "신호위반", likelihood: "low", evidence: FACTS[1], party: "unknown" },
+    { item: "음주운전", likelihood: "unknown", evidence: null, party: "unknown" },
+    { item: "제한속도 20km/h 초과", likelihood: "unknown", evidence: null, party: "unknown" },
   ],
   favorable: ["상대 차가 일시정지 없이 교차로에 들어왔습니다 (7.8초)", "내 차가 먼저 교차로에 들어와 있었습니다 (8.6초)"],
   unfavorable: ["충돌 전 내 차의 감속이 보이지 않습니다 (8.6초)"],
