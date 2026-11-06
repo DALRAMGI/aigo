@@ -1,5 +1,5 @@
 import { useSignIn } from '@clerk/expo';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { SocialButtons } from '@/components/SocialButtons';
@@ -8,6 +8,7 @@ import { clerkMessage } from '@/lib/clerkMessage';
 
 export default function SignInScreen() {
   const { signIn } = useSignIn();
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -85,6 +86,7 @@ export default function SignInScreen() {
       <Button label="로그인" disabled={pending || !email || !password} onPress={submit} />
       <Link href="/sign-up">회원가입</Link>
       <SocialButtons />
+      <Button label="사고 현장 모드" secondary onPress={() => router.push('/scene')} />
     </View>
   );
 }
