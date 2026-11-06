@@ -1,9 +1,33 @@
 import { ClerkProvider, useAuth } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
-import { Stack } from 'expo-router';
+import * as Notifications from 'expo-notifications';
+import { Stack, useRouter } from 'expo-router';
+import { useEffect, useRef } from 'react';
+import { useApi } from '@/lib/api';
+import { analysisIdFrom, registerPush } from '@/lib/push';
 
 function Routes() {
   const { isLoaded, isSignedIn } = useAuth();
+  const api = useApi();
+  const router = useRouter();
+  const last = Notifications.useLastNotificationResponse();
+  const handled = useRef<string | null>(null);
+
+  // 이미 권한이 있으면 로그인 때마다 토큰을 다시 등록한다(같은 폰의 다른 계정으로 옮겨 가게). 권한 요청은 첫 분석 제출 뒤에 한다.
+  useEffect(() => {
+    if (isLoaded && isSignedIn) registerPush(api, false);
+  }, [isLoaded, isSignedIn, api]);
+
+  // 알림을 눌러 앱이 시작되면 Clerk가 로드되기 전에는 보호 구역이 닫혀 있다. 로그인이 확인된 뒤에 이동한다.
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn || !last) return;
+    const key = last.notification.request.identifier;
+    if (handled.current === key) return;
+    handled.current = key;
+    const id = analysisIdFrom(last.notification.request.content.data);
+    if (id !== null) router.push(`/analyses/${id}`);
+  }, [isLoaded, isSignedIn, last, router]);
+
   // 로딩 중에는 Stack을 그대로 그린다. 오프라인에서 Clerk가 끝내 로드되지 않아도 index와 scene은 열려야 한다.
   // 두 보호 구역은 로딩이 끝나기 전에는 닫아 두어 로그인 화면이 잠깐 보이는 일이 없게 한다.
   return (

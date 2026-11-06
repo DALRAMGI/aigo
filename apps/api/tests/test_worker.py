@@ -295,3 +295,59 @@ def test_trim_reaches_pipeline_context(db, user, storage):
     put_source(storage, mk2)
     worker.process(db, worker.claim_next(db), storage, pipe)
     assert got == [(2.5, 9.0), None]
+
+
+# ---- 완료 푸시 ----
+def spy(monkeypatch):
+    calls = []
+    monkeypatch.setattr(worker, "notify_analysis", lambda db, uid, aid, ok: calls.append((uid, aid, ok)))
+    return calls
+
+
+def test_worker_notifies_on_done(db, user, storage, monkeypatch):
+    calls = spy(monkeypatch)
+    a = mk(db, user); put_source(storage, a); a = worker.claim_next(db)
+    worker.process(db, a, storage, ok_pipeline)
+    assert calls == [(user.id, a.id, True)]
+
+
+def test_worker_notifies_on_final_failure(db, user, storage, monkeypatch):
+    calls = spy(monkeypatch)
+    a = mk(db, user); put_source(storage, a); a = worker.claim_next(db)
+    worker.process(db, a, storage, raising(PipelineError("NO_VIDEO", "x")))
+    assert calls == [(user.id, a.id, False)]
+
+
+def test_worker_does_not_notify_when_deleted(db, user, storage, monkeypatch):
+    calls = spy(monkeypatch)
+    a = mk(db, user); put_source(storage, a); a = worker.claim_next(db)
+
+    def pipeline(ctx):
+        r = ok_pipeline(ctx)
+        a.erase(NOW)
+        db.commit()
+        return r
+
+    worker.process(db, a, storage, pipeline)
+    assert calls == []
+
+
+def test_notify_failure_does_not_change_analysis(db, user, storage, monkeypatch):
+    from app import push
+    a = mk(db, user); put_source(storage, a); a = worker.claim_next(db)
+    db.add(push.PushDevice(token="ExponentPushToken[w]", user_id=user.id, platform="ios")); db.commit()
+
+    def boom(*a, **k):
+        raise RuntimeError("expo down")
+    monkeypatch.setattr(push.httpx, "post", boom)  # 실제 네트워크를 쓰지 않고 실패시킨다.
+    worker.process(db, a, storage, ok_pipeline)
+    assert a.status == AnalysisStatus.done
+
+
+def test_requeue_notifies_only_final_timeout(db, user, monkeypatch):
+    calls = spy(monkeypatch)
+    retry = mk(db, user, status=AnalysisStatus.processing, attempts=1, heartbeat_at=NOW - timedelta(minutes=11))
+    last = mk(db, user, status=AnalysisStatus.processing, attempts=2, heartbeat_at=NOW - timedelta(minutes=11))
+    worker.requeue_stale(db, NOW)
+    assert retry.status == AnalysisStatus.queued
+    assert calls == [(user.id, last.id, False)]
