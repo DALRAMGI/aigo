@@ -34,10 +34,12 @@ def _public_pem(key) -> str:
         serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo).decode()
 
 
-def issue_token(sub: str, email: str, expired: bool = False, *, key=None, azp: str = TEST_ORIGIN) -> str:
+def issue_token(sub: str, email: str, expired: bool = False, *, key=None, azp: str | None = TEST_ORIGIN) -> str:
     now = int(time.time())
-    claims = {"sub": sub, "email": email, "azp": azp, "iat": now - 3600, "nbf": now - 3600,
+    claims = {"sub": sub, "email": email, "iat": now - 3600, "nbf": now - 3600,
               "exp": now - 600 if expired else now + 600}
+    if azp is not None:
+        claims["azp"] = azp
     return jwt.encode(claims, key or _TEST_KEY, algorithm="RS256")
 
 
