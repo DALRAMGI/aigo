@@ -42,8 +42,12 @@ def test_wrong_key_401(client):
     assert_401(client.get("/api/v1/me", headers=auth(key=_OTHER_KEY)))
 
 
-def test_wrong_origin_401(client):
+def test_token_with_unknown_azp_is_rejected(client):
     assert_401(client.get("/api/v1/me", headers=auth(azp="https://evil.example")))
+
+
+def test_token_without_azp_is_accepted(client):
+    assert client.get("/api/v1/me", headers=auth(azp=None)).status_code == 200
 
 
 def test_garbage_token_401(client):

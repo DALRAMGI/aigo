@@ -36,12 +36,16 @@ def _verified_clerk_id(request: Request) -> str:
         AuthenticateRequestOptions(
             jwt_key=settings.clerk_jwt_key or None,
             secret_key=settings.clerk_secret_key or None,
-            authorized_parties=settings.clerk_authorized_parties,
             accepts_token=["session_token"],
         ),
     )
-    sub = (state.payload or {}).get("sub")
+    payload = state.payload or {}
+    sub = payload.get("sub")
     if not state.is_signed_in or not sub:
+        raise _unauthorized()
+    # 앱(native) 토큰에는 azp가 없다. SDK에 넘기면 거부되므로 azp가 있을 때만 직접 비교한다.
+    azp = payload.get("azp")
+    if azp and azp not in settings.clerk_authorized_parties:
         raise _unauthorized()
     return sub
 
