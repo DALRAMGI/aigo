@@ -26,11 +26,10 @@
 ```text
 apps/
 ├── api/    FastAPI API, 분석 worker, 평가 도구
-└── web/    Next.js 웹
+├── web/    Next.js 웹
+└── app/    React Native(Expo) 모바일 앱, 준비 단계
 docs/       설계 문서와 구현 계획
 ```
-
-모바일 앱은 추후 `apps/app`에 추가합니다.
 
 ## 기술 스택
 
@@ -64,6 +63,14 @@ uv run python -m app.worker
 # 웹: apps/web/.env.example을 .env.local로 복사해 값을 채운다.
 cd apps/web
 pnpm install && pnpm dev --port 3100
+```
+
+앱은 `apps/app`에서 실행합니다.
+
+```bash
+cd apps/app
+cp .env.example .env
+pnpm install && pnpm start
 ```
 
 ## 테스트
