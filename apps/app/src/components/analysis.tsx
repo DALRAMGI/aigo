@@ -6,8 +6,10 @@ import {
   DISCLAIMER,
   FAILURES,
   LEVEL,
+  LIKELIHOOD,
   STAGES,
   faultRange,
+  signed,
   formatTime,
   type Analysis,
   type Evidence,
@@ -20,16 +22,8 @@ import { ErrorText, styles } from '@/components/ui';
 const NO_SCENE = '이 영상에서 사고 장면을 확인하지 못했습니다';
 const CONFIDENCE_MEANS = '과실 판단이 맞을 확률이 아니라, 영상에서 충돌 장면과 근거를 얼마나 확인했는지를 뜻합니다.';
 const MAX_VIDEO_RELOADS = 2; // 만료가 아닌 이유로 계속 실패해도 분석을 무한히 다시 부르지 않는다.
-const LIKELIHOOD = {
-  high: '가능성 높음',
-  medium: '가능성 있음',
-  low: '가능성 낮음',
-  unknown: '영상으로 알 수 없음',
-} as const;
-
 const bold = { fontWeight: '700' as const };
 const muted = { color: '#666' };
-const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0');
 
 type Seek = ((t: number) => void) | undefined;
 

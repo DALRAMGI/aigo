@@ -6,6 +6,7 @@ import { Button, ErrorText } from '@/components/ui';
 import { useAnalysis } from '@/lib/analysis';
 import { useApi } from '@/lib/api';
 import type { ApiFailure } from '@/lib/api';
+import { shareReportPdf } from '@/lib/share-report';
 
 export default function AnalysisScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -13,6 +14,7 @@ export default function AnalysisScreen() {
   const router = useRouter();
   const { analysis, notFound, stale, stop, reload } = useAnalysis(id);
   const [deleting, setDeleting] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // 다른 기기에서 지워졌으면 알리고 목록으로 돌아간다. 폴링은 이미 멈췄다.
@@ -20,6 +22,19 @@ export default function AnalysisScreen() {
     if (notFound === null) return;
     Alert.alert('분석을 찾을 수 없습니다', notFound, [{ text: '확인', onPress: () => router.replace('/analyses') }]);
   }, [notFound, router]);
+
+  const share = async () => {
+    if (!analysis?.report) return;
+    setSharing(true);
+    setError(null);
+    try {
+      await shareReportPdf(analysis.report, analysis.created_at, analysis.id);
+    } catch {
+      setError('PDF를 만들지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
+    } finally {
+      setSharing(false);
+    }
+  };
 
   const remove = () =>
     Alert.alert('분석 삭제', '이 분석과 영상 파일을 지웁니다. 되돌릴 수 없습니다.', [
@@ -48,6 +63,7 @@ export default function AnalysisScreen() {
       <Stack.Screen options={{ title: `분석 #${id}` }} />
       {analysis ? (
         <>
+          {analysis.status === 'done' && analysis.report ? <Button label="PDF로 공유" disabled={sharing} onPress={share} /> : null}
           <Button label="분석 삭제" secondary disabled={deleting} onPress={remove} />
           <ErrorText>{error}</ErrorText>
           {analysis.status !== 'done' ? (
