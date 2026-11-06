@@ -8,6 +8,7 @@ export default function HomeScreen() {
     <View style={styles.screen}>
       <Text style={styles.title}>AIGO</Text>
       <Button label="영상 분석하기" onPress={() => router.push('/upload')} />
+      <Button label="사고 현장 모드" secondary onPress={() => router.push('/scene')} />
     </View>
   );
 }
