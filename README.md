@@ -27,7 +27,7 @@
 apps/
 ├── api/    FastAPI API, 분석 worker, 평가 도구
 ├── web/    Next.js 웹
-└── app/    React Native(Expo) 모바일 앱, 준비 단계
+└── app/    React Native(Expo) 모바일 앱
 docs/       설계 문서와 구현 계획
 ```
 
@@ -65,19 +65,24 @@ cd apps/web
 pnpm install && pnpm dev --port 3100
 ```
 
-앱은 `apps/app`에서 실행합니다.
+앱은 `apps/app`에서 실행합니다. 네이티브 모듈을 쓰므로 Expo Go가 아니라 개발 빌드가 필요합니다.
 
 ```bash
 cd apps/app
-cp .env.example .env
-pnpm install && pnpm start
+cp .env.example .env.local   # 공개 키와 API 주소를 채운다.
+pnpm install
+pnpm android                 # Android SDK, JDK 17 필요. 개발 빌드를 설치한다.
+npx expo start --dev-client
 ```
+
+네이티브 패키지를 추가한 뒤에는 `rm -rf android`로 지우고 다시 빌드합니다. 그대로 빌드하면 새 모듈이 빠질 수 있습니다.
 
 ## 테스트
 
 ```bash
 cd apps/api && uv run pytest          # 느린 YOLO 테스트 제외: -m 'not model'
 cd apps/web && pnpm vitest run && pnpm build
+cd apps/app && pnpm exec tsc --noEmit && pnpm test
 
 # 전체 시나리오. 창을 띄운 Chrome으로 돌고, 실제 OpenAI를 호출한다. 사고 장면이 있는 클립을 쓴다.
 cd apps/web && E2E_VIDEO=<영상 경로> BASE_URL=<웹 주소> pnpm playwright test e2e/journey.spec.ts
