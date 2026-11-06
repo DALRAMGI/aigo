@@ -5,6 +5,7 @@ import { Button, ErrorText, styles } from '@/components/ui';
 import { STATUS_LABEL, analysisTitle, faultRange, seoulDate, type Analysis } from '@/lib/analysis';
 import { useApi } from '@/lib/api';
 import type { ApiFailure } from '@/lib/api';
+import { deleteReportPdf } from '@/lib/cache';
 
 export default function AnalysesScreen() {
   const api = useApi();
@@ -45,6 +46,7 @@ export default function AnalysesScreen() {
         onPress: async () => {
           try {
             await api(`/api/v1/analyses/${id}`, { method: 'DELETE' });
+            deleteReportPdf(id);
             setItems((cur) => cur?.filter((a) => a.id !== id) ?? null);
           } catch (e) {
             const err = e as ApiFailure;

@@ -10,6 +10,7 @@ import { FAILURES } from '@/lib/analysis';
 import { ApiFailure, useApi } from '@/lib/api';
 import { registerPush } from '@/lib/push';
 import { checkTrim, checkVideo, fileSize, isTicketExpired, uploadVideo, videoName, type UploadTicket } from '@/lib/upload';
+import { deleteCached } from '@/lib/cache';
 
 const CONSENT_TEXT = '영상에는 번호판과 얼굴이 담길 수 있고, 분석을 위해 프레임이 OpenAI로 전송되며, 분석을 삭제하면 파일까지 지웁니다.';
 const KEEP_AWAKE_TAG = 'aigo-upload';
@@ -90,6 +91,7 @@ export default function UploadScreen() {
       setPhase('submitting');
       await api(`/api/v1/analyses/${a.ticket.id}/submit`, { method: 'POST' });
       registerPush(api, true); // 첫 분석을 낸 뒤에 알림 권한을 묻는다. 기다리지 않는다.
+      deleteCached(file.uri); // 올린 뒤에는 앱 캐시의 복사본이 필요 없다.
       router.replace(`/analyses/${a.ticket.id}`);
     } catch (e) {
       if (abort.current.signal.aborted) return; // 화면을 떠났다.

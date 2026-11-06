@@ -24,7 +24,9 @@ export default function ShareScreen() {
     if (!isLoaded || !isSignedIn || !uri || done.current) return;
     done.current = true;
     clearSharedPayloads(); // 같은 영상이 다시 열리지 않게 한다.
-    router.replace({ pathname: '/upload', params: { uri, name: videoName(uri, video?.originalName, video?.mimeType), size: String(video?.contentSize ?? '') } });
+    // 공유로 앱이 켜지면 스택에 홈이 없다. 홈을 깔아야 레포트에서 돌아갈 수 있다.
+    router.replace('/home');
+    router.push({ pathname: '/upload', params: { uri, name: videoName(uri, video?.originalName, video?.mimeType), size: String(video?.contentSize ?? '') } });
   }, [isLoaded, isSignedIn, uri, video, clearSharedPayloads, router]);
 
   // 해석이 시작되기 전(첫 렌더)에도 결과가 비어 있으므로 데이터가 있고 아직 결과도 오류도 없으면 로딩으로 본다.
