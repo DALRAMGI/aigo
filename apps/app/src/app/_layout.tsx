@@ -22,8 +22,10 @@ function Routes() {
 
   // 로그인 전에 받은 공유 영상이 남아 있으면 로그인 뒤 공유 화면으로 돌아가 이어서 처리한다.
   useEffect(() => {
+    // 화면 이동마다 다시 돌면 안내 화면을 뒤로가기로 나가도 끌려온다. 로그인 상태가 바뀔 때만 본다.
     if (isLoaded && isSignedIn && pathname !== '/share' && getSharedPayloads().length > 0) router.replace('/share');
-  }, [isLoaded, isSignedIn, pathname, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded, isSignedIn, router]);
 
   // 알림을 눌러 앱이 시작되면 Clerk가 로드되기 전에는 보호 구역이 닫혀 있다. 로그인이 확인된 뒤에 이동한다.
   useEffect(() => {
