@@ -5,6 +5,7 @@ import { Alert, Text, View } from 'react-native';
 import { Button, ErrorText, styles } from '@/components/ui';
 import { useApi } from '@/lib/api';
 import type { ApiFailure } from '@/lib/api';
+import { clearAppCache } from '@/lib/cache';
 import { unregisterPush } from '@/lib/push';
 
 // /products 목록 페이지는 웹에 없다. 상품 목록은 첫 화면의 #products 구역이다.
@@ -36,6 +37,7 @@ export default function AccountScreen() {
             return;
           }
           // 계정은 이미 지워졌다. 로그아웃 실패를 삭제 실패로 보이게 하지 않는다.
+          clearAppCache();
           signOut().catch(() => setError(DELETED_BUT_SIGNED_IN));
         },
       },
@@ -49,6 +51,7 @@ export default function AccountScreen() {
       <Button label="상품 보기" onPress={() => WebBrowser.openBrowserAsync(PRODUCTS_URL).catch(() => setError('상품 페이지를 열지 못했습니다.'))} />
       <Button label="로그아웃" secondary onPress={async () => {
         await unregisterPush(api); // 실패해도 로그아웃은 계속한다.
+        clearAppCache();
         signOut().catch(() => setError('로그아웃하지 못했습니다. 다시 시도해 주세요.'));
       }} />
       <Button label="탈퇴" onPress={remove} />

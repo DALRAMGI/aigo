@@ -18,7 +18,8 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.jcmaker.aigo"
+      "package": "com.jcmaker.aigo",
+      "allowBackup": false
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -31,6 +32,23 @@
       "expo-web-browser",
       "expo-video",
       "expo-notifications",
+      [
+        "expo-sharing",
+        {
+          "ios": {
+            "enabled": true,
+            "activationRule": {
+              "supportsMovieWithMaxCount": 1
+            }
+          },
+          "android": {
+            "enabled": true,
+            "singleShareMimeTypes": [
+              "video/*"
+            ]
+          }
+        }
+      ],
       [
         "expo-location",
         {

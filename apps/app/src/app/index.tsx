@@ -1,5 +1,6 @@
 import { useAuth } from '@clerk/expo';
 import { Redirect, useRouter } from 'expo-router';
+import { getSharedPayloads } from 'expo-sharing';
 import { Text, View } from 'react-native';
 import { Button, styles } from '@/components/ui';
 
@@ -16,5 +17,6 @@ export default function Index() {
       </View>
     );
   }
-  return <Redirect href={isSignedIn ? '/home' : '/sign-in'} />;
+  if (!isSignedIn) return <Redirect href="/sign-in" />;
+  return <Redirect href={getSharedPayloads().length > 0 ? '/share' : '/home'} />;
 }

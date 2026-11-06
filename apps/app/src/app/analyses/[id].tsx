@@ -7,6 +7,7 @@ import { useAnalysis } from '@/lib/analysis';
 import { useApi } from '@/lib/api';
 import type { ApiFailure } from '@/lib/api';
 import { shareReportPdf } from '@/lib/share-report';
+import { deleteReportPdf } from '@/lib/cache';
 
 export default function AnalysisScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -48,6 +49,7 @@ export default function AnalysisScreen() {
           setError(null);
           try {
             await api(`/api/v1/analyses/${id}`, { method: 'DELETE' });
+            deleteReportPdf(id);
             router.replace('/analyses');
           } catch (e) {
             setError((e as ApiFailure).message);
