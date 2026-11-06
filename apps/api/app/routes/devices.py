@@ -12,7 +12,7 @@ from app.errors import ApiError
 from app.models import PushDevice, User
 
 router = APIRouter()
-TOKEN_RE = re.compile(r"^Expo(nent)?PushToken\[.+\]$")
+TOKEN_RE = re.compile(r"Expo(nent)?PushToken\[.+\]")
 
 
 class DeviceIn(BaseModel):
@@ -22,7 +22,7 @@ class DeviceIn(BaseModel):
 
 @router.post("/devices", status_code=204)
 def register_device(body: DeviceIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    if len(body.token) > 255 or not TOKEN_RE.match(body.token) or body.platform not in ("android", "ios"):
+    if len(body.token) > 255 or not TOKEN_RE.fullmatch(body.token) or body.platform not in ("android", "ios"):
         raise ApiError(400, "INVALID_PUSH_TOKEN", "푸시 토큰이 올바르지 않습니다.")
     # 같은 폰에서 다른 계정으로 로그인하면 토큰을 새 사용자로 옮긴다.
     stmt = insert(PushDevice).values(token=body.token, user_id=user.id, platform=body.platform)

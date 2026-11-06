@@ -41,7 +41,7 @@ def test_register_moves_token_to_current_user(client, db):
 
 @pytest.mark.parametrize("token,platform", [
     ("not-a-token", "android"), ("ExpoPushToken[]", "android"), ("ExpoPushToken[" + "x" * 250 + "]", "android"),
-    (TOKEN, "web"), ("", "ios"),
+    (TOKEN, "web"), ("", "ios"), (TOKEN + "\n", "android"),
 ])
 def test_register_rejects_bad_token(client, token, platform):
     r = client.post("/api/v1/devices", json={"token": token, "platform": platform}, headers=auth("user_a"))
