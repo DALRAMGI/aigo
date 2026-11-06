@@ -18,6 +18,14 @@ const SETTLED = new Set(['done', 'failed', 'created']);
 export const DISCLAIMER = '영상 기반 AI 추정이며 법적 판단이 아닙니다';
 export const LEVEL = { high: '높음', medium: '보통', low: '낮음' } as const;
 
+export const LIKELIHOOD = {
+  high: '가능성 높음',
+  medium: '가능성 있음',
+  low: '가능성 낮음',
+  unknown: '영상으로 알 수 없음',
+} as const;
+export const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0');
+
 const NEXT_DAY = '한국 시간 자정이 지나면 다시 올릴 수 있습니다.';
 const NOT_COUNTED = '실패한 분석은 하루 한도에 세지 않습니다.';
 const MODEL_FAILURE = { title: 'AI 분석을 끝내지 못했습니다', hint: `영상 문제가 아닐 수 있습니다. ${NOT_COUNTED}` };
@@ -25,7 +33,7 @@ const MODEL_FAILURE = { title: 'AI 분석을 끝내지 못했습니다', hint: `
 export const FAILURES: Record<string, { title: string; hint: string; final?: boolean }> = {
   DAILY_LIMIT: { title: '오늘 올릴 수 있는 분석을 모두 썼습니다', hint: NEXT_DAY, final: true },
   SERVICE_LIMIT: { title: '오늘 서비스 분석이 마감됐습니다', hint: NEXT_DAY, final: true },
-  UPLOAD_FAILED: { title: '영상을 올리지 못했습니다', hint: '다시 시도해도 하루 한도를 더 쓰지 않습니다.' },
+  UPLOAD_FAILED: { title: '영상을 올리지 못했습니다', hint: '다시 시도하면 같은 분석에 이어 올리므로 하루 한도를 더 쓰지 않습니다. 올린 지 15분이 지나 주소가 만료됐다면 새 분석이 만들어져 한도가 한 번 더 줄어듭니다.' },
   UPLOAD_INCOMPLETE: { title: '영상이 끝까지 올라가지 않았습니다', hint: '다시 시도하면 처음부터 올립니다.' },
   INVALID_VIDEO: { title: '영상을 읽지 못했습니다', hint: '파일이 손상되지 않았는지 확인하고 다른 파일로 올려 주세요.' },
   VIDEO_TOO_LONG: { title: '영상이 너무 깁니다', hint: '충돌 앞뒤만 남기고 2분 이하로 잘라서 올려 주세요.' },
