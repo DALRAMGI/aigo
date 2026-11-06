@@ -11,8 +11,13 @@ jest.mock('expo-file-system', () => {
     get exists() {
       return mockFs.has(this.uri);
     }
+    get name() {
+      return this.uri.split('/').pop()!;
+    }
     textSync() {
-      return mockFs.get(this.uri)!;
+      const text = mockFs.get(this.uri);
+      if (text === undefined) throw new Error('없는 파일');
+      return text;
     }
     write(s: string) {
       mockFs.set(this.uri, s);
@@ -30,6 +35,12 @@ jest.mock('expo-file-system', () => {
       this.uri = join(parts);
     }
     create() {}
+    get exists() {
+      return [...mockFs.keys()].some((k) => k.startsWith(`${this.uri}/`));
+    }
+    list() {
+      return [...mockFs.keys()].filter((k) => k.startsWith(`${this.uri}/`)).map((k) => new File(k));
+    }
   }
   return { File, Directory, Paths: { document: { uri: 'doc' } } };
 });
@@ -59,13 +70,17 @@ test('delete_removes_file_and_entry', async () => {
   const p = await addScenePhoto('src.jpg', '2026-11-07T01:00:00Z', null);
   await deleteScenePhoto(p.id);
   expect(mockFs.has(p.uri)).toBe(false);
+  expect(mockFs.has(`doc/scene/${p.id}.json`)).toBe(false);
   expect(await listScenePhotos()).toEqual([]);
 });
 
-test('corrupt_index_is_empty_list', async () => {
-  mockFs.set('doc/scene/photos.json', '{not json');
-  expect(await listScenePhotos()).toEqual([]);
-  expect(await addScenePhoto('src.jpg', '2026-11-07T01:00:00Z', null)).toBeTruthy();
+test('corrupt_metadata_keeps_photo', async () => {
+  const p = await addScenePhoto('src.jpg', '2026-11-07T01:00:00Z', { lat: 1, lng: 2 });
+  const other = await addScenePhoto('src.jpg', '2026-11-07T02:00:00Z', null);
+  mockFs.set(`doc/scene/${p.id}.json`, '{not json');
+  const list = await listScenePhotos();
+  expect(list.map((x) => x.id).sort()).toEqual([p.id, other.id].sort());
+  expect(list.find((x) => x.id === p.id)?.location).toBeNull();
 });
 
 test('rejects_empty_insurer_phone', async () => {

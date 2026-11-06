@@ -17,17 +17,21 @@ const CHECKLIST = [
 
 const LOCATION_TIMEOUT_MS = 5000;
 
-// 위치는 촬영을 막지 않는다. 권한 거부, 실패, 시간 초과는 모두 null이다.
+async function readLocation(): Promise<SceneLocation | null> {
+  const perm = await Location.requestForegroundPermissionsAsync();
+  if (!perm.granted) return null;
+  const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+  return { lat: pos.coords.latitude, lng: pos.coords.longitude };
+}
+
+// 위치는 촬영을 막지 않는다. 권한 창 대기까지 포함해 권한 거부, 실패, 시간 초과는 모두 null이다.
 async function currentLocation(): Promise<SceneLocation | null> {
   let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), LOCATION_TIMEOUT_MS);
+  });
   try {
-    const perm = await Location.requestForegroundPermissionsAsync();
-    if (!perm.granted) return null;
-    const timeout = new Promise<null>((resolve) => {
-      timer = setTimeout(() => resolve(null), LOCATION_TIMEOUT_MS);
-    });
-    const pos = await Promise.race([Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }), timeout]);
-    return pos ? { lat: pos.coords.latitude, lng: pos.coords.longitude } : null;
+    return await Promise.race([readLocation(), timeout]);
   } catch {
     return null;
   } finally {
