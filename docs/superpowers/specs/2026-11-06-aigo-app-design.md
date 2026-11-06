@@ -101,7 +101,7 @@ Google 로그인은 Expo Go에서 되지 않으므로 개발 빌드를 쓴다. C
 
 ### 상품 구매
 
-`expo-web-browser`로 `https://aigo.up.railway.app/products`를 연다. 앱 로그인이 공유되지 않아 웹에서 다시 로그인할 수 있다.
+`expo-web-browser`로 `https://aigo.up.railway.app/#products`를 연다. 웹에는 상품 목록 전용 페이지가 없고 첫 화면의 구역만 있다. 앱 로그인이 공유되지 않아 웹에서 다시 로그인할 수 있다.
 
 ## 나중에 할 일: DashPi 영상 받기
 

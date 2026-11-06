@@ -44,3 +44,8 @@ test('includes_reference_only_notice', () => {
   }
   expect(reportHtml(base, '2026-11-06T00:00:00Z')).not.toMatch(/<(img|video)/);
 });
+
+test('사고 장면을 못 찾은 레포트에도 놓쳤을 수 있다는 안내를 넣는다', () => {
+  const html = reportHtml({ ...base, involvement: 'none', reason: '충돌 장면 없음' }, '2026-11-07T00:00:00Z');
+  expect(html).toContain('놓쳤을 수 있습니다');
+});

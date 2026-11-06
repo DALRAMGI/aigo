@@ -15,7 +15,7 @@ export function reportHtml(report: Report, createdAt: string): string {
   let body: string;
 
   if (report.involvement === 'none') {
-    body = `<h1>사고 장면 미확인</h1>${report.reason ? `<p>${esc(report.reason)}</p>` : ''}`;
+    body = `<h1>사고 장면 미확인</h1>${report.reason ? `<p>${esc(report.reason)}</p>` : ''}<p class="muted">분석이 실제 충돌을 놓쳤을 수 있습니다. 영상을 직접 확인해 주세요.</p>`;
   } else {
     const verdict =
       `<p class="muted">${report.involvement === 'party' ? '내 차 사고' : '제3자 사고'}</p>` +

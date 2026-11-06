@@ -30,7 +30,7 @@ export default function AnalysisScreen() {
     try {
       await shareReportPdf(analysis.report, analysis.created_at, analysis.id);
     } catch {
-      setError('PDF를 만들지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
+      setError('PDF를 공유하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
     } finally {
       setSharing(false);
     }
