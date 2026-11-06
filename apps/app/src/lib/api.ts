@@ -1,5 +1,5 @@
 import { useAuth } from '@clerk/expo';
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 
 const FALLBACK_MESSAGE = '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.';
 const NETWORK_MESSAGE = '서버에 연결하지 못했습니다. 네트워크를 확인해 주세요.';
@@ -49,5 +49,11 @@ export async function apiRequest<T>(getToken: GetToken, path: string, init: Requ
 
 export function useApi() {
   const { getToken } = useAuth();
-  return useCallback(<T,>(path: string, init?: RequestInit) => apiRequest<T>(getToken, path, init), [getToken]);
+  // Clerk의 getToken은 렌더링마다 새 함수다. 의존성에 넣으면 useEffect가 API를 무한 호출한다.
+  const latest = useRef(getToken);
+  latest.current = getToken;
+  return useCallback(
+    <T,>(path: string, init?: RequestInit) => apiRequest<T>((o) => latest.current(o), path, init),
+    [],
+  );
 }

@@ -1,7 +1,9 @@
 // useApi만 Clerk를 쓰므로 테스트에서는 네이티브 런타임이 필요한 모듈을 불러오지 않는다.
 jest.mock('@clerk/expo', () => ({ useAuth: jest.fn() }));
 
-import { ApiFailure, apiRequest, toApiFailure } from './api';
+import { renderHook } from '@testing-library/react-native';
+import { useAuth } from '@clerk/expo';
+import { ApiFailure, apiRequest, toApiFailure, useApi } from './api';
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -48,4 +50,14 @@ test('연결 실패는 status 0 NETWORK_ERROR다', async () => {
 test('204는 undefined를 돌려준다', async () => {
   fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
   await expect(apiRequest(getToken, '/api/v1/me', { method: 'DELETE' })).resolves.toBeUndefined();
+});
+
+test('getToken이 렌더링마다 바뀌어도 useApi 함수는 그대로다', async () => {
+  // 함수가 바뀌면 이 값을 의존성으로 쓰는 useEffect가 API를 무한 호출한다.
+  const useAuthMock = useAuth as jest.Mock;
+  useAuthMock.mockImplementation(() => ({ getToken: jest.fn().mockResolvedValue('tok') }));
+  const { result, rerender } = await renderHook(() => useApi());
+  const first = result.current;
+  await rerender({});
+  expect(result.current).toBe(first);
 });
