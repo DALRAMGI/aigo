@@ -8,8 +8,11 @@ function Routes() {
   // 로그인하지 않으면 (auth)로, 로그인하면 (tabs)로 자동으로 옮겨 간다.
   return (
     <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" />
       <Stack.Protected guard={!!isSignedIn}>
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="upload" options={{ headerShown: true }} />
+        <Stack.Screen name="analyses/[id]" options={{ headerShown: true }} />
       </Stack.Protected>
       <Stack.Protected guard={!isSignedIn}>
         <Stack.Screen name="(auth)" />

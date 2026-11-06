@@ -52,6 +52,15 @@ test('204는 undefined를 돌려준다', async () => {
   await expect(apiRequest(getToken, '/api/v1/me', { method: 'DELETE' })).resolves.toBeUndefined();
 });
 
+test('2xx인데 JSON이 아니면 INVALID_RESPONSE ApiFailure다', async () => {
+  fetchMock.mockResolvedValue(new Response('<html>ok</html>', { status: 200 }));
+  await expect(apiRequest(getToken, '/api/v1/me')).rejects.toMatchObject({
+    name: 'ApiFailure',
+    status: 200,
+    code: 'INVALID_RESPONSE',
+  });
+});
+
 test('getToken이 렌더링마다 바뀌어도 useApi 함수는 그대로다', async () => {
   // 함수가 바뀌면 이 값을 의존성으로 쓰는 useEffect가 API를 무한 호출한다.
   const useAuthMock = useAuth as jest.Mock;
