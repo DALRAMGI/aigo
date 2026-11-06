@@ -270,6 +270,7 @@ def test_openapi_exposes_typed_report(client):
     {"trim_start": 10, "trim_end": 5},
     {"trim_start": 5, "trim_end": 5},
     {"trim_start": -1, "trim_end": 5},
+    {"trim_start": 0, "trim_end": 0.00001},
 ])
 def test_create_rejects_trim_start_after_end(client, trim):
     r = create(client, **trim)

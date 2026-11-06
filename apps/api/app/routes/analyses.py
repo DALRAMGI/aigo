@@ -18,6 +18,7 @@ from app.storage import Storage, get_storage
 
 router = APIRouter()
 UPLOAD_TTL_S = 900
+MIN_TRIM_S = 1
 CONTENT_TYPES = {".mp4": "video/mp4", ".mov": "video/quicktime", ".webm": "video/webm", ".avi": "video/x-msvideo"}
 
 
@@ -104,6 +105,8 @@ def _check_trim(start: float | None, end: float | None) -> None:
         raise ApiError(400, "INVALID_TRIM", "구간의 시작과 끝을 모두 올바른 숫자로 보내 주세요.")
     if not 0 <= start < end:
         raise ApiError(400, "INVALID_TRIM", "구간의 끝은 시작보다 뒤여야 합니다.")
+    if end - start < MIN_TRIM_S:
+        raise ApiError(400, "INVALID_TRIM", f"구간은 {MIN_TRIM_S}초 이상이어야 합니다.")
     if end - start > settings.max_video_seconds:
         raise ApiError(400, "INVALID_TRIM", f"구간은 {settings.max_video_seconds}초 이하여야 합니다.")
 

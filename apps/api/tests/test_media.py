@@ -150,6 +150,13 @@ def test_normalize_allows_long_source_when_trim_fits(tmp_path):
     assert info.duration == pytest.approx(2.0, abs=0.2)
 
 
+def test_normalize_accepts_tiny_trim_start(tmp_path):
+    # str(0.00001)은 1e-05라 ffmpeg가 거부한다.
+    src = mk.testsrc(tmp_path / "s.mp4", seconds=3)
+    info, _, _ = _norm_trim(src, tmp_path, max_seconds=5, trim=(0.00001, 2.0))
+    assert info.duration == pytest.approx(2.0, abs=0.2)
+
+
 def _norm_trim(src, tmp_path, max_seconds, trim):
     a, p = tmp_path / "a.mp4", tmp_path / "p.mp4"
     return normalize(src, a, p, max_seconds, trim=trim), a, p

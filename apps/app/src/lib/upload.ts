@@ -47,6 +47,7 @@ export function checkTrim(duration: number | null, { start, end }: Trim): string
   }
   if (start === null || end === null) return '구간의 시작과 끝을 모두 정해 주세요.';
   if (end <= start) return '구간의 끝은 시작보다 뒤여야 합니다.';
+  if (end - start < 1) return '구간은 1초 이상이어야 합니다.';
   if (end - start > MAX_SECONDS) return `구간은 ${MAX_SECONDS}초 이하여야 합니다. 지금은 ${Math.round(end - start)}초입니다.`;
   return '';
 }

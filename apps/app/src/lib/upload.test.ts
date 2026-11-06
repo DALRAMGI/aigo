@@ -77,6 +77,9 @@ describe('checkTrim', () => {
     expect(checkTrim(120, none)).toBe('');
     expect(checkTrim(null, none)).toBe('');
   });
+  test('trim_shorter_than_one_second_is_rejected', () => {
+    expect(checkTrim(20, { start: 3, end: 3.5 })).toBe('구간은 1초 이상이어야 합니다.');
+  });
   test('long_video_requires_trim', () => {
     expect(checkTrim(121, none)).toContain('구간을 골라');
     expect(checkTrim(300, { start: 10, end: 70 })).toBe('');

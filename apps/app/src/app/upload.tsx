@@ -17,7 +17,7 @@ const sec = (t: number | null) => (t === null ? '-' : `${t.toFixed(1)}초`);
 
 type Picked = { uri: string; name: string; size: number; mime: string; duration: number | null }; // duration은 초. 모르면 null
 type Phase = 'idle' | 'uploading' | 'submitting';
-type Attempt = { uri: string; ticket: UploadTicket; uploaded: boolean };
+type Attempt = { uri: string; ticket: UploadTicket; trimKey: string; uploaded: boolean };
 
 const sizeOf = (uri: string) => {
   try {
@@ -74,12 +74,13 @@ export default function UploadScreen() {
     try {
       // 재시도는 같은 분석을 다시 쓴다. 서명 URL이 만료됐을 때만 새로 만든다(새로 만들면 하루 한도를 또 쓴다).
       let a = attempt.current;
-      if (!a || a.uri !== file.uri || (!a.uploaded && isTicketExpired(a.ticket, new Date()))) {
+      const trimKey = `${trim.start}~${trim.end}`;
+      if (!a || a.uri !== file.uri || a.trimKey !== trimKey || (!a.uploaded && isTicketExpired(a.ticket, new Date()))) {
         const ticket = await api<UploadTicket>('/api/v1/analyses', {
           method: 'POST',
           body: JSON.stringify({ filename: file.name, size: file.size, content_type: file.mime, consent, ...(trim.start !== null && trim.end !== null && { trim_start: trim.start, trim_end: trim.end }) }),
         });
-        a = attempt.current = { uri: file.uri, ticket, uploaded: false };
+        a = attempt.current = { uri: file.uri, trimKey, ticket, uploaded: false };
       }
       if (!a.uploaded) {
         await uploadVideo(a.ticket, file.uri, (r) => setPercent(Math.round(r * 100)), abort.current.signal);

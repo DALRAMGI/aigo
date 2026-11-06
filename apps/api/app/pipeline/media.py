@@ -82,7 +82,7 @@ def normalize(src: Path, dst_analysis: Path, dst_playback: Path, max_seconds: in
     if length > max_seconds:
         raise PipelineError("VIDEO_TOO_LONG", f"영상이 너무 깁니다. {max_seconds}초 이하의 영상만 분석할 수 있습니다.")
     # 입력 앞의 -ss는 변환할 때 프레임 단위로 정확히 자른다. -to 대신 -t(길이)를 써서 의미가 모호하지 않게 한다.
-    cut = ["-ss", str(start), "-t", str(length)] if trim else []
+    cut = ["-ss", f"{start:.3f}", "-t", f"{length:.3f}"] if trim else []  # 1e-05 같은 표기는 ffmpeg가 거부한다.
     # setpts로 시작 오프셋을 0으로 맞춰야 프레임 번호 / 30 = 시각이 된다.
     _run(["ffmpeg", "-v", "error", "-y", *cut, "-i", str(src),
           "-vf", f"setpts=PTS-STARTPTS,fps={FPS},scale=trunc(iw/2)*2:trunc(ih/2)*2",
