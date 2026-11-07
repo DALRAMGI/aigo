@@ -138,6 +138,15 @@ railway up --service api --detach   # 저장소 루트에서 실행한다. web, 
 
 `NEXT_PUBLIC_*`를 바꾸면 web을 다시 빌드해야 한다. Bucket CORS의 AllowedOrigins는 웹 주소들과 `http://localhost:3100`만 허용한다.
 
+## 앱 릴리즈
+
+Android APK는 [GitHub Releases](https://github.com/jcmaker/aigo/releases)에서 받습니다. 스토어 출시와 iOS 배포는 아직 하지 않았습니다.
+
+1. `apps/app/app.json`의 `version`을 올리고, 기존 APK 위에 설치할 수 있게 `android.versionCode`도 올립니다.
+2. `eas.json`의 `preview.env` 값을 환경변수로 넣습니다. 넣지 않으면 `.env.local`의 로컬 주소가 APK에 들어갑니다.
+3. `rm -rf android`, `npx expo prebuild --platform android --no-install`, `cd android && ./gradlew assembleRelease` 순서로 빌드합니다.
+4. `apksigner`로 다시 서명합니다. 키는 저장소 밖 `~/.aigo/`에 있고, 잃어버리면 같은 앱으로 업데이트할 수 없습니다.
+
 ## 평가 결과
 
 **현재 분석 품질은 합격선에 미달합니다.** 아래 값은 팀 확인 전 초안 정답으로 측정한 결과이며, 표본이 작습니다. 자세한 내용은 `apps/api/eval/results`에 있습니다.
