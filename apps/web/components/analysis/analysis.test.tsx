@@ -525,3 +525,22 @@ test("목록이 비어 있으면 첫 분석을 안내한다", () => {
   render(<AnalysisList items={[]} />);
   expect(screen.getByRole("link", { name: "영상 올리기" }).getAttribute("href")).toBe("/analyses/new");
 });
+
+test("기준 영역에 관련 법규와 참고 판례를 새 탭 링크로 보인다", () => {
+  fetchMock.mockResolvedValue(json(200, OVERLAY));
+  render(<ReportView analysis={finished(PARTY)} />);
+  expect(screen.getByText("관련 법규")).toBeTruthy();
+  const law = screen.getByRole("link", { name: "도로교통법 제19조(안전거리 확보 등)" });
+  expect(law.getAttribute("href")).toBe(PARTY.fault!.laws[0].url);
+  expect(law.getAttribute("target")).toBe("_blank");
+  expect(law.getAttribute("rel")).toBe("noopener noreferrer");
+  expect(screen.getByText("참고 판례")).toBeTruthy();
+  expect(screen.getByRole("link", { name: "대법원 1986.12.9. 86다카1551" })).toBeTruthy();
+});
+
+test("법규와 판례가 비면 제목도 숨긴다", () => {
+  fetchMock.mockResolvedValue(json(200, OVERLAY));
+  render(<ReportView analysis={finished({ ...PARTY, fault: { ...PARTY.fault!, laws: [], cases: [] } })} />);
+  expect(screen.queryByText("관련 법규")).toBeNull();
+  expect(screen.queryByText("참고 판례")).toBeNull();
+});

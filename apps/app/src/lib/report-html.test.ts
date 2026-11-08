@@ -51,3 +51,16 @@ test('사고 장면을 못 찾은 레포트에도 놓쳤을 수 있다는 안내
   const html = reportHtml({ ...base, involvement: 'none', reason: '충돌 장면 없음' }, '2026-11-07T00:00:00Z');
   expect(html).toContain('놓쳤을 수 있습니다');
 });
+
+test('prints_laws_and_cases_escaped_without_links', () => {
+  const fault = { ...base.fault!, laws: [{ name: '도로교통법', article: '제19조', title: evil, url: 'https://x.example/?a=1&b=2' }], cases: [{ court: '대법원', date: '1986.12.9.', number: '86다카1551', url: 'https://x.example' }] };
+  const html = reportHtml({ ...base, fault }, '2026-11-06T00:00:00Z');
+  expect(html).toContain('관련 법규');
+  expect(html).toContain('도로교통법 제19조(&lt;script&gt;');
+  expect(html).toContain('참고 판례');
+  expect(html).toContain('대법원 1986.12.9. 86다카1551');
+  expect(html).not.toContain('<a ');
+  const none = reportHtml({ ...base, fault: { ...fault, laws: [], cases: [] } }, '2026-11-06T00:00:00Z');
+  expect(none).not.toContain('관련 법규');
+  expect(none).not.toContain('참고 판례');
+});
