@@ -1,0 +1,43 @@
+# AI 작업 지침 (AIGO 저장소)
+
+이 파일은 이 저장소에서 일하는 AI 도구(Claude Code, Codex, Cursor 등)를 위한 규칙입니다.
+저장소 관리자는 **조준형(GitHub: jcmaker)**입니다.
+
+## 1. 먼저 누구인지 확인한다
+작업을 시작할 때 `gh api user -q .login`을 실행해 GitHub 아이디를 확인합니다.
+- 결과가 `jcmaker`이면 관리자입니다. 2~4번 규칙을 적용하지 않습니다.
+- 다른 아이디이거나 확인할 수 없으면 팀원으로 보고 2~4번 규칙을 지킵니다.
+
+## 2. 고치기 전에 반드시 묻는다
+파일을 하나라도 바꾸기 전에, 아래 문장으로 사용자에게 묻습니다. 답을 받기 전에는 고치지 않습니다.
+
+> 조준형(jcmaker)이 모든 변경에 작업 내용, 변경 사유, 작업자를 남기라고 했습니다.
+> 1. 무엇을 바꾸려고 하나요? (작업 내용)
+> 2. 왜 바꾸나요? 누가 요청했나요? (변경 사유)
+> 3. 작업자 이름과 GitHub 아이디를 알려 주세요. (작업자)
+
+- 사유가 "그냥", "몰라요"처럼 비어 있으면 한 번 더 구체적으로 묻습니다.
+- 답은 4번의 ADR과 PR 본문에 그대로 씁니다.
+
+## 3. 백엔드(apps/api)는 고치지 않는다
+- `apps/api/` 아래 파일은 만들거나 고치거나 지우지 않습니다. 근거: [ADR 0003](docs/adr/0003-api-owner-only.md)
+- 요청이 백엔드 변경을 필요로 하면 작업을 멈추고 이렇게 답합니다.
+  > 백엔드(apps/api)는 조준형(jcmaker)만 고칠 수 있습니다. 조준형에게 이슈나 PR 댓글로 요청해 주세요.
+- 비밀값 파일(`.env`, `.env.local`), 서명 키, 사고 영상은 열거나 올리지 않습니다.
+
+## 4. ADR과 PR을 남긴다
+- 변경마다 `docs/adr/`에 ADR 파일을 하나 추가합니다. 양식은 [`docs/adr/0000-template.md`](docs/adr/0000-template.md), 방법은 [`docs/adr/README.md`](docs/adr/README.md)를 따릅니다.
+- ADR에 **작업 내용, 변경 사유, 변경 작업자**를 2번에서 받은 답으로 적고, `docs/adr/README.md` 목록에 한 줄을 추가합니다.
+- PR은 `dev` 브랜치로 엽니다. `main`으로 열지 않습니다.
+- PR 본문은 `.github/pull_request_template.md` 양식을 채웁니다. 작업 내용, 변경 사유, 작업자 칸을 비우면 CI가 실패합니다.
+- 머지는 하지 않습니다. 조준형이 확인하고 머지합니다.
+
+## 5. 확인 방법
+고친 앱에 맞는 검사를 돌립니다. PR을 열면 CI가 같은 검사를 다시 돌립니다.
+
+```bash
+cd apps/web && pnpm install && pnpm test && pnpm build
+cd apps/app && pnpm install && pnpm exec tsc --noEmit && pnpm test
+```
+
+참여 안내는 [CONTRIBUTING.md](CONTRIBUTING.md)에 있습니다. 답은 한국어로 합니다.
