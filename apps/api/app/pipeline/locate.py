@@ -127,7 +127,8 @@ def _decel(tracks, width: float, height: float, n: int) -> np.ndarray:
         if len(ps) < SHORT_TRACK_POINTS or ps[0].cls in NOT_VEHICLE:
             continue
         risk = [_risk(p, width, height) for p in ps]
-        speed = [(ps[i].t, max(0.0, (risk[i] - risk[i - 1]) / (ps[i].t - ps[i - 1].t))) for i in range(1, len(ps))]
+        speed = [(ps[i].t, max(0.0, (risk[i] - risk[i - 1]) / (ps[i].t - ps[i - 1].t)))
+                 for i in range(1, len(ps)) if ps[i].t > ps[i - 1].t]  # 같은 시각 두 점은 속도를 낼 수 없다.
         for i, (t, v) in enumerate(speed):
             before = [u for s, u in speed[:i] if t - s <= BOX_WINDOW_S]
             if before:

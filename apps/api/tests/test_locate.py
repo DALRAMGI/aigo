@@ -75,13 +75,28 @@ def test_camera_shake_finds_offscreen_collision():
     assert got[0].signals["box"] == 0
 
 
-def test_car_leaving_frame_keeps_box_signal():
+@pytest.mark.xfail(strict=True, reason="Task 7 가중치 조정에서 회복")
+def test_camera_shake_alone_finds_offscreen_collision():
+    got = find_candidates({}, AREA, _motion([(9.8, 25), (10.0, 35), (10.2, 28)]), None)
+    assert len(got) == 1 and abs(got[0].t - 10) <= 0.4
+
+
+def _leaving_track():
     # 실제 클립 AA8U의 트랙: 충돌 직전 화면 아래로 벗어나 트랙이 끊긴다. 이후 상자는 없다.
     boxes = [(1001, 528, 1138, 599), (1017, 534, 1167, 612), (1031, 541, 1208, 633), (1048, 546, 1254, 652),
              (1056, 528, 1315, 661), (1064, 502, 1389, 669), (1068, 504, 1483, 718), (1048, 519, 1601, 805)]
-    track = [TrackPoint(round(12.2 + i * 0.2, 6), b, "car", 0.8) for i, b in enumerate(boxes)]
+    return [TrackPoint(round(12.2 + i * 0.2, 6), b, "car", 0.8) for i, b in enumerate(boxes)]
+
+
+@pytest.mark.xfail(strict=True, reason="Task 7 가중치 조정에서 회복")
+def test_car_leaving_frame_finds_collision():
+    got = find_candidates({1: _leaving_track()}, AREA, _motion(), None)
+    assert got and abs(got[0].t - 13.6) <= 0.6
+
+
+def test_car_leaving_frame_keeps_box_signal():
     debug: dict = {}
-    find_candidates({1: track}, AREA, _motion(), None, debug=debug)
+    find_candidates({1: _leaving_track()}, AREA, _motion(), None, debug=debug)
     box = np.array(debug["box"])
     # 단독 점수(0.24)는 decel이 들어간 초기 가중치에서 MIN_SCORE 아래다. 상자 신호가 남는지만 본다.
     assert box.max() > 0.4 and abs(int(np.argmax(box)) * STEP_S - 13.6) <= 0.6
@@ -180,11 +195,20 @@ def test_clip_start_is_not_a_candidate():
     assert find_candidates(tracks, AREA, _motion([(0.2, 138)]), None) == []
 
 
+def _road_noise():
+    return [(round(i * 0.1, 6), 0.07 + (0.1 if 99 <= i <= 101 else 0.0005 * (i % 3))) for i in range(200)]
+
+
+@pytest.mark.xfail(strict=True, reason="Task 7 가중치 조정에서 회복")
+def test_steady_road_noise_impact_finds_collision():
+    got = find_candidates({1: _track(6, 10, _approach(big=420))}, AREA, _motion(), _road_noise())
+    assert got[0].signals["audio"] > 0.5
+
+
 def test_steady_road_noise_keeps_impact_sound():
     # 주행 소음은 중앙값이 높아도 음악이 아니다. 그 위의 충격음은 살린다(실제 클립 GA4b).
-    noise = [(round(i * 0.1, 6), 0.07 + (0.1 if 99 <= i <= 101 else 0.0005 * (i % 3))) for i in range(200)]
     debug: dict = {}
-    find_candidates({1: _track(6, 10, _approach(big=420))}, AREA, _motion(), noise, debug=debug)
+    find_candidates({1: _track(6, 10, _approach(big=420))}, AREA, _motion(), _road_noise(), debug=debug)
     audio = np.array(debug["audio"])
     assert audio.max() > 0.5 and abs(int(np.argmax(audio)) * STEP_S - 10.0) <= 0.4
 
@@ -239,12 +263,24 @@ def test_off_path_car_stop_ignored():
 def test_candidate_records_signal_peaks():
     got = find_candidates({}, AREA, _motion([(5.0, 30)]), _audio([(5.1, 0.5)]))
     assert got and abs(got[0].t - 5.0) <= 0.4
-    assert 4.6 <= got[0].peaks["motion"] <= 5.4
-    assert 4.6 <= got[0].peaks["audio"] <= 5.4
+    assert got[0].peaks["motion"] == 5.0 and got[0].peaks["audio"] == 5.0
     assert got[0].peaks["box"] is None and got[0].peaks["decel"] is None
+
+
+def test_signal_peak_is_original_time_not_candidate_time():
+    # 소리 한 점이 5.4에 있다. 후보는 흔들림 쪽 5.0이지만 소리 시각은 번지기 전 원래 정점 5.4다.
+    audio = [(t, 0.5 if abs(t - 5.4) < 0.01 else v) for t, v in _audio()]
+    got = find_candidates({}, AREA, _motion([(5.0, 30)]), audio)
+    assert got[0].t == 5.0
+    assert got[0].peaks["motion"] == 5.0 and got[0].peaks["audio"] == 5.4
 
 
 def test_debug_series_includes_decel():
     debug: dict = {}
     find_candidates({1: _stop_at(W / 2)}, AREA, _motion(), None, debug=debug)
     assert "decel" in debug
+
+
+def test_decel_same_time_points_do_not_divide_by_zero():
+    track = _stop_at(W / 2)
+    assert _decel({1: track[:5] + [track[4]] + track[5:]}, W, H, _n()).max() > 0
