@@ -106,16 +106,42 @@ test("가입 → 테스트 결제 → 업로드 → 레포트 → 삭제 → 탈
     const video = page.locator("video");
     await page.waitForTimeout(1000); // 레포트가 다 그려질 시간
     await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.readyState), { timeout: 30_000 }).toBeGreaterThan(0);
-    // 사고 장면을 찾지 못한 레포트(involvement none)에는 근거 시각이 없어 영상을 직접 옮긴다.
-    const link = page.getByRole("button", { name: /장면으로 이동$/ }).first();
-    const label = (await link.count()) ? await link.getAttribute("aria-label") : null;
-    if (label) await link.click();
-    else await video.evaluate((v: HTMLVideoElement) => void (v.currentTime = v.duration / 2));
-    await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.currentTime)).toBeGreaterThan(0);
-    await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.readyState), { timeout: 30_000 }).toBeGreaterThan(1);
+    // 근거 시각 버튼을 차례로 눌러 박스가 그려지는 첫 시각을 찾는다. (충돌 순간은 추적이 끊겨 박스가 없을 수 있다)
+    // 사고 장면을 찾지 못한 레포트(involvement none)에는 버튼이 없어 영상을 직접 옮긴다.
     const boxes = page.locator("video + div > div");
-    await expect.poll(() => boxes.count(), { timeout: 15_000 }).toBeGreaterThan(0);
-    steps.seek = { label, currentTime: await video.evaluate((v: HTMLVideoElement) => v.currentTime), boxes: await boxes.count() };
+    const links = page.getByRole("button", { name: /장면으로 이동$/ });
+    const labels = [...new Set(await links.evaluateAll((els) => els.map((e) => e.getAttribute("aria-label") ?? "")))].filter(Boolean).slice(0, 6);
+    const time = () => video.evaluate((v: HTMLVideoElement) => v.currentTime);
+    const waitBoxes = async (ms: number) => {
+      try {
+        await expect.poll(() => boxes.count(), { timeout: ms }).toBeGreaterThan(0);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    let worked: string | null = null;
+    let tried = 0;
+    if (labels.length === 0) {
+      await video.evaluate((v: HTMLVideoElement) => void (v.currentTime = v.duration / 2));
+      await expect.poll(time).toBeGreaterThan(0);
+      await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.readyState), { timeout: 30_000 }).toBeGreaterThan(1);
+      await expect.poll(() => boxes.count(), { timeout: 15_000 }).toBeGreaterThan(0);
+    } else {
+      for (const label of labels) {
+        tried++;
+        const before = await time();
+        await page.getByRole("button", { name: label, exact: true }).first().click();
+        await expect.poll(time, { timeout: 10_000 }).not.toBe(before);
+        await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.readyState), { timeout: 30_000 }).toBeGreaterThan(1);
+        if (await waitBoxes(5_000)) {
+          worked = label;
+          break;
+        }
+      }
+      expect(worked, `박스가 보이는 근거 시각이 없음 (${tried}개 시도)`).not.toBeNull();
+    }
+    steps.seek = { label: worked, tried, currentTime: await time(), boxes: await boxes.count() };
   });
 
   await timed("09-delete", async () => {
