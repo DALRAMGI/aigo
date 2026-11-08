@@ -3,7 +3,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 export type IconName =
   | 'home' | 'list' | 'video' | 'alert' | 'user' | 'back' | 'share' | 'chevron'
-  | 'check' | 'camera' | 'phone' | 'lock' | 'upload' | 'trash' | 'image';
+  | 'check' | 'camera' | 'phone' | 'lock' | 'upload' | 'trash' | 'image' | 'file' | 'logout';
 
 // 24x24 선 아이콘 모양
 const shapes: Record<IconName, ReactNode> = {
@@ -21,6 +21,8 @@ const shapes: Record<IconName, ReactNode> = {
   lock: <><Rect x="5" y="11" width="14" height="10" rx="2" /><Path d="M8 11V8a4 4 0 018 0v3" /></>,
   upload: <Path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3" />,
   trash: <Path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" />,
+  file: <><Path d="M6 3h8l4 4v14H6z" /><Path d="M14 3v4h4M9 12h6M9 16h4" /></>,
+  logout: <Path d="M10 4H5v16h5M15 8l4 4-4 4M19 12H9" />,
   image: <><Rect x="3" y="4" width="18" height="16" rx="2" /><Circle cx="9" cy="10" r="1.5" /><Path d="M21 16l-5-5-9 9" /></>,
 };
 

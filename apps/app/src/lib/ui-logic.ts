@@ -19,11 +19,7 @@ export function stageSegments(stageIndex: number, total: number, state: 'running
   });
 }
 
-// 홈 숫자. capped는 목록이 요청 상한(100)만큼 왔다는 뜻.
-export function homeCounts(items: { status: string }[], capped: boolean) {
-  return {
-    total: capped ? '100+' : String(items.length),
-    done: items.filter((i) => i.status === 'done').length,
-    running: items.filter((i) => i.status === 'queued' || i.status === 'processing').length,
-  };
-}
+// 내 분석 목록 필터. 진행 중은 아직 레포트가 없는 분석(업로드 미완료, 대기, 분석 중)이고, 실패는 전체에서만 보인다.
+export type ListFilter = 'all' | 'done' | 'running';
+export const matches = (f: ListFilter, status: string) =>
+  f === 'all' || (f === 'done' ? status === 'done' : ['created', 'queued', 'processing'].includes(status));
