@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, Text } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, Text, type ScrollViewInstance } from 'react-native';
 import { ErrorLine, FailureNotice, ProgressView, ReportView, type ReportTab } from '@/components/analysis';
 import { Button, Card, Icon, Screen, TopBar } from '@/components/ui';
 import { circleButtonStyle } from '@/components/ui/TopBar';
@@ -20,6 +20,11 @@ export default function AnalysisScreen() {
   const [sharing, setSharing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<ReportTab>('summary');
+  const scroll = useRef<ScrollViewInstance>(null);
+  // 탭을 바꾸면 맨 위로 올린다. 요약 맨 아래의 시각을 눌러도 근거 탭의 영상이 보인다.
+  useEffect(() => {
+    scroll.current?.scrollTo({ y: 0, animated: false });
+  }, [tab]);
 
   // 다른 기기에서 지워졌으면 알리고 목록으로 돌아간다. 폴링은 이미 멈췄다.
   useEffect(() => {
@@ -75,7 +80,7 @@ export default function AnalysisScreen() {
   ) : undefined;
 
   return (
-    <Screen scroll>
+    <Screen scroll scrollRef={scroll}>
       <Stack.Screen options={{ headerShown: false }} />
       <TopBar title={analysis ? analysisTitle(analysis) : `분석 #${id}`} subtitle={subtitle} onBack={back} right={shareButton} />
       {analysis ? (

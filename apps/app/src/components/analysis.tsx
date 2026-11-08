@@ -204,6 +204,10 @@ export function ReportView({ analysis, onReload, tab, onTab }: { analysis: Analy
     p.loop = false;
   });
   const reloads = useRef(0);
+  // 근거 탭을 떠나면 VideoView만 사라지고 플레이어는 계속 재생된다.
+  useEffect(() => {
+    if (tab !== 'evidence') player.pause();
+  }, [tab, player]);
   const seek = (t: number) => {
     player.pause();
     player.currentTime = t;
@@ -219,7 +223,11 @@ export function ReportView({ analysis, onReload, tab, onTab }: { analysis: Analy
   const { fault, timeline } = report;
 
   const video = url ? <Video url={url} player={player} onReload={onReload} reloads={reloads} /> : <Text style={muted}>재생할 수 있는 영상이 없습니다.</Text>;
-  const notice = <Notice tone="warn">{DISCLAIMER}</Notice>;
+  const notice = (
+    <View accessible accessibilityLabel={`주의 ${DISCLAIMER}`}>
+      <Notice tone="warn">주의: {DISCLAIMER}</Notice>
+    </View>
+  );
 
   if (report.involvement === 'none') {
     return (

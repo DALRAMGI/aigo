@@ -1,8 +1,9 @@
 // analysis.ts가 api.ts를 거쳐 Clerk를 불러오고, Clerk는 타이머를 남긴다.
 jest.mock('@clerk/expo', () => ({ useAuth: jest.fn() }));
+const mockPlayer = { pause: jest.fn(), currentTime: 0, loop: true, status: 'idle' };
 jest.mock('expo-video', () => {
   const { View } = require('react-native');
-  return { useVideoPlayer: () => ({ pause: jest.fn(), currentTime: 0, loop: true, status: 'idle' }), VideoView: View };
+  return { useVideoPlayer: () => mockPlayer, VideoView: View };
 });
 jest.mock('expo', () => ({ ...jest.requireActual('expo'), useEvent: (_p: unknown, _e: string, init: unknown) => init }));
 
@@ -69,4 +70,17 @@ test('사고 장면이 없으면 탭이 없다', async () => {
 test('진행 화면은 단계 4/6을 보인다', async () => {
   await render(<ProgressView analysis={analysis({ status: 'processing', stage: 'focus', report: null })} stale={false} />);
   expect(screen.getByLabelText(/단계 4\/6/)).toBeTruthy();
+});
+
+test('주의 문구는 "주의"로 읽힌다', async () => {
+  await render(<ReportView analysis={analysis({})} onReload={() => {}} tab="summary" onTab={() => {}} />);
+  expect(screen.getByLabelText('주의 영상 기반 AI 추정이며 법적 판단이 아닙니다')).toBeTruthy();
+});
+
+test('근거 탭을 떠나면 영상을 멈춘다', async () => {
+  const props = { analysis: analysis({}), onReload: () => {}, onTab: () => {} };
+  const { rerender } = await render(<ReportView {...props} tab="evidence" />);
+  mockPlayer.pause.mockClear();
+  await rerender(<ReportView {...props} tab="summary" />);
+  expect(mockPlayer.pause).toHaveBeenCalled();
 });
