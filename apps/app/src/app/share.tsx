@@ -2,8 +2,8 @@ import { useAuth } from '@clerk/expo';
 import { useRouter } from 'expo-router';
 import { useIncomingShare } from 'expo-sharing';
 import { useEffect, useRef } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
-import { Button, ErrorText, styles } from '@/components/ui';
+import { ActivityIndicator } from 'react-native';
+import { Button, EmptyState, Screen } from '@/components/ui';
 import { videoName } from '@/lib/upload';
 
 // 공유 메뉴로 받은 영상을 업로드 화면으로 넘긴다. 로그인 보호 밖에 두고, 로그인 전이면 받은 데이터를 지우지 않고 안내만 한다.
@@ -33,21 +33,21 @@ export default function ShareScreen() {
   const waiting = sharedPayloads.length > 0 && resolvedSharedPayloads.length === 0 && !error;
   if (!isLoaded || (isSignedIn && (isResolving || waiting || uri))) {
     return (
-      <View style={styles.screen}>
-        <ActivityIndicator />
+      <Screen>
+        <ActivityIndicator style={{ marginTop: 32 }} />
         {/* 오프라인이면 Clerk가 끝내 로드되지 않는다. */}
-        {!isLoaded ? <Button label="사고 현장 모드" secondary onPress={() => router.replace('/scene')} /> : null}
-      </View>
+        {!isLoaded ? <Button label="사고 현장 모드" variant="danger" onPress={() => router.replace('/scene')} /> : null}
+      </Screen>
     );
   }
 
   if (!isSignedIn) {
     return (
-      <View style={styles.screen}>
-        <Text style={styles.title}>로그인이 필요합니다</Text>
-        <Text>공유받은 영상은 로그인한 뒤 이어서 올릴 수 있습니다.</Text>
-        <Button label="로그인하러 가기" onPress={() => router.replace('/sign-in')} />
-      </View>
+      <Screen>
+        <EmptyState icon="lock" title="로그인이 필요합니다" body="공유받은 영상은 로그인한 뒤 이어서 올릴 수 있습니다.">
+          <Button label="로그인하러 가기" onPress={() => router.replace('/sign-in')} />
+        </EmptyState>
+      </Screen>
     );
   }
 
@@ -61,16 +61,17 @@ export default function ShareScreen() {
           ? '공유받은 파일을 읽지 못했습니다. 다시 공유해 주세요.'
           : '영상 파일만 분석할 수 있습니다.';
   return (
-    <View style={styles.screen}>
-      <ErrorText>{message}</ErrorText>
-      <Button
-        label="처음으로"
-        secondary
-        onPress={() => {
-          clearSharedPayloads();
-          router.replace('/');
-        }}
-      />
-    </View>
+    <Screen>
+      <EmptyState icon="share" title={message}>
+        <Button
+          label="처음으로"
+          variant="secondary"
+          onPress={() => {
+            clearSharedPayloads();
+            router.replace('/');
+          }}
+        />
+      </EmptyState>
+    </Screen>
   );
 }

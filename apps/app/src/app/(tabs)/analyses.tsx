@@ -1,11 +1,13 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, FlatList, Pressable, Text, View } from 'react-native';
-import { Button, ErrorText, styles } from '@/components/ui';
-import { STATUS_LABEL, analysisTitle, faultRange, seoulDate, type Analysis } from '@/lib/analysis';
+import { Alert, RefreshControl, Text } from 'react-native';
+import { AnalysisRow } from '@/components/AnalysisRow';
+import { Button, Card, EmptyState, Screen, TopBar } from '@/components/ui';
+import type { Analysis } from '@/lib/analysis';
 import { useApi } from '@/lib/api';
 import type { ApiFailure } from '@/lib/api';
 import { deleteReportPdf } from '@/lib/cache';
+import { color, type as t } from '@/theme';
 
 export default function AnalysesScreen() {
   const api = useApi();
@@ -58,42 +60,24 @@ export default function AnalysesScreen() {
     ]);
 
   return (
-    <View style={{ flex: 1 }}>
-      <FlatList
-        data={items ?? []}
-        keyExtractor={(a) => String(a.id)}
-        refreshing={refreshing}
-        onRefresh={refresh}
-        contentContainerStyle={{ padding: 24, gap: 12 }}
-        ListHeaderComponent={
-          <View style={{ gap: 12 }}>
-            <Text style={styles.title}>내 분석</Text>
-            <ErrorText>{error}</ErrorText>
-          </View>
-        }
-        ListEmptyComponent={
-          items ? (
-            <View style={{ gap: 12 }}>
-              <Text>아직 분석한 영상이 없습니다.</Text>
-              <Button label="영상 올리기" onPress={() => router.push('/upload')} />
-            </View>
-          ) : (
-            <Text>불러오는 중</Text>
-          )
-        }
-        renderItem={({ item: a }) => (
-          <View style={{ gap: 6, borderBottomWidth: 1, borderColor: '#ddd', paddingBottom: 12 }}>
-            <Pressable accessibilityRole="button" onPress={() => router.push(`/analyses/${a.id}`)} style={{ gap: 2 }}>
-              <Text style={{ color: '#666' }}>
-                #{a.id} · {seoulDate(a.created_at)} · {STATUS_LABEL[a.status] ?? STATUS_LABEL.processing}
-              </Text>
-              <Text style={{ fontWeight: '600' }}>{analysisTitle(a)}</Text>
-              {a.report?.fault ? <Text>내 과실 {faultRange(a.report.fault)}</Text> : null}
-            </Pressable>
-            <Button label="삭제" secondary onPress={() => remove(a.id)} />
-          </View>
-        )}
-      />
-    </View>
+    <Screen scroll tabInset refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
+      <TopBar title="내 분석" />
+      {error ? <Text style={{ ...t.caption, color: color.danger600 }}>{error}</Text> : null}
+      {items === null ? (
+        <Text style={{ ...t.body, color: color.gray11 }}>불러오는 중</Text>
+      ) : items.length === 0 ? (
+        <Card>
+          <EmptyState icon="video" title="아직 분석한 영상이 없어요">
+            <Button label="영상 올리기" onPress={() => router.push('/upload')} />
+          </EmptyState>
+        </Card>
+      ) : (
+        <Card>
+          {items.map((a) => (
+            <AnalysisRow key={a.id} a={a} onPress={() => router.push(`/analyses/${a.id}`)} onDelete={() => remove(a.id)} />
+          ))}
+        </Card>
+      )}
+    </Screen>
   );
 }

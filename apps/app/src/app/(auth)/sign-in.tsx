@@ -1,9 +1,11 @@
 import { useSignIn } from '@clerk/expo';
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { Text } from 'react-native';
 import { SocialButtons } from '@/components/SocialButtons';
-import { Button, ErrorText, Input, styles } from '@/components/ui';
+import { Wordmark } from '@/components/Wordmark';
+import { Button, CodeInput, Screen, TextField } from '@/components/ui';
+import { color, type as t } from '@/theme';
 import { clerkMessage } from '@/lib/clerkMessage';
 
 export default function SignInScreen() {
@@ -54,18 +56,21 @@ export default function SignInScreen() {
       setError('로그인을 마치지 못했습니다. 처음부터 다시 시도해 주세요.');
     });
 
+  const errorText = error ? <Text style={{ ...t.caption, color: color.danger600 }}>{error}</Text> : null;
+
   if (step === 'code') {
     return (
-      <View style={styles.screen}>
-        <Text style={styles.title}>이메일 인증</Text>
-        <Text>{email}로 보낸 인증 코드를 입력해 주세요.</Text>
-        <Input value={code} onChangeText={setCode} keyboardType="number-pad" placeholder="인증 코드" />
-        <ErrorText>{error}</ErrorText>
+      <Screen scroll>
+        <Wordmark />
+        <Text style={{ ...t.title, color: color.gray12, marginTop: 24 }}>이메일 인증</Text>
+        <Text style={{ ...t.body, color: color.gray11 }}>{email}로 보낸 인증 코드를 입력해 주세요.</Text>
+        <CodeInput value={code} onChange={setCode} />
+        {errorText}
         <Button label="확인" disabled={pending || !code} onPress={verify} />
-        <Button label="코드 다시 받기" secondary disabled={pending} onPress={() => run(() => signIn.mfa.sendEmailCode())} />
+        <Button label="코드 다시 받기" variant="secondary" disabled={pending} onPress={() => run(() => signIn.mfa.sendEmailCode())} />
         <Button
           label="처음부터 다시"
-          secondary
+          variant="secondary"
           onPress={async () => {
             await signIn.reset();
             setCode('');
@@ -73,20 +78,21 @@ export default function SignInScreen() {
             setStep('form');
           }}
         />
-      </View>
+      </Screen>
     );
   }
 
   return (
-    <View style={styles.screen}>
-      <Text style={styles.title}>로그인</Text>
-      <Input value={email} onChangeText={setEmail} keyboardType="email-address" autoComplete="email" placeholder="이메일" />
-      <Input value={password} onChangeText={setPassword} secureTextEntry autoComplete="current-password" placeholder="비밀번호" />
-      <ErrorText>{error}</ErrorText>
+    <Screen scroll>
+      <Wordmark />
+      <Text style={{ ...t.title, color: color.gray12, marginTop: 24 }}>로그인</Text>
+      <TextField value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" placeholder="이메일" />
+      <TextField value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none" autoComplete="current-password" placeholder="비밀번호" />
+      {errorText}
       <Button label="로그인" disabled={pending || !email || !password} onPress={submit} />
-      <Link href="/sign-up">회원가입</Link>
+      <Link href="/sign-up" style={{ ...t.label, color: color.brand600, textAlign: 'center', paddingVertical: 8 }}>회원가입</Link>
       <SocialButtons />
-      <Button label="사고 현장 모드" secondary onPress={() => router.push('/scene')} />
-    </View>
+      <Button label="사고 현장 모드" variant="danger" onPress={() => router.push('/scene')} />
+    </Screen>
   );
 }

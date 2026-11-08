@@ -1,13 +1,15 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Alert, ScrollView, Text } from 'react-native';
-import { FailureNotice, ProgressView, ReportView } from '@/components/analysis';
-import { Button, ErrorText } from '@/components/ui';
-import { useAnalysis } from '@/lib/analysis';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, Text, type ScrollViewInstance } from 'react-native';
+import { ErrorLine, FailureNotice, ProgressView, ReportView, type ReportTab } from '@/components/analysis';
+import { Button, Card, Icon, Screen, TopBar } from '@/components/ui';
+import { circleButtonStyle } from '@/components/ui/TopBar';
+import { analysisTitle, seoulDate, useAnalysis } from '@/lib/analysis';
 import { useApi } from '@/lib/api';
 import type { ApiFailure } from '@/lib/api';
 import { shareReportPdf } from '@/lib/share-report';
 import { deleteReportPdf } from '@/lib/cache';
+import { color, type } from '@/theme';
 
 export default function AnalysisScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -17,6 +19,12 @@ export default function AnalysisScreen() {
   const [deleting, setDeleting] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<ReportTab>('summary');
+  const scroll = useRef<ScrollViewInstance>(null);
+  // 탭을 바꾸면 맨 위로 올린다. 요약 맨 아래의 시각을 눌러도 근거 탭의 영상이 보인다.
+  useEffect(() => {
+    scroll.current?.scrollTo({ y: 0, animated: false });
+  }, [tab]);
 
   // 다른 기기에서 지워졌으면 알리고 목록으로 돌아간다. 폴링은 이미 멈췄다.
   useEffect(() => {
@@ -60,28 +68,42 @@ export default function AnalysisScreen() {
       },
     ]);
 
+  // 알림으로 바로 열면 뒤로 갈 화면이 없다.
+  const back = () => (router.canGoBack() ? router.back() : router.replace('/analyses'));
+  const report = analysis?.status === 'done' ? analysis.report : null;
+  const tabbed = !!report && report.involvement !== 'none';
+  const subtitle = analysis ? [tabbed ? (report.involvement === 'party' ? '내 차 사고' : '제3자 사고') : null, seoulDate(analysis.created_at)].filter(Boolean).join(' · ') : undefined;
+  const shareButton = report ? (
+    <Pressable accessibilityRole="button" accessibilityLabel="PDF로 공유" accessibilityState={{ disabled: sharing }} disabled={sharing} onPress={share} style={circleButtonStyle}>
+      {sharing ? <ActivityIndicator color={color.ink} /> : <Icon name="share" size={16} color={color.ink} />}
+    </Pressable>
+  ) : undefined;
+
   return (
-    <ScrollView contentContainerStyle={{ padding: 24, gap: 12 }}>
-      <Stack.Screen options={{ title: `분석 #${id}` }} />
+    <Screen scroll scrollRef={scroll}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <TopBar title={analysis ? analysisTitle(analysis) : `분석 #${id}`} subtitle={subtitle} onBack={back} right={shareButton} />
       {analysis ? (
         <>
-          {analysis.status === 'done' && analysis.report ? <Button label="PDF로 공유" disabled={sharing} onPress={share} /> : null}
-          <Button label="분석 삭제" secondary disabled={deleting} onPress={remove} />
-          <ErrorText>{error}</ErrorText>
+          <ErrorLine>{error}</ErrorLine>
           {analysis.status !== 'done' ? (
             <ProgressView analysis={analysis} stale={stale} />
           ) : analysis.report ? (
-            <ReportView analysis={analysis} onReload={reload} />
+            <ReportView analysis={analysis} onReload={reload} tab={tab} onTab={setTab} />
           ) : (
-            <FailureNotice code="REPORT_MISSING" message="분석은 끝났지만 레포트가 없습니다. 영상을 다시 올려 주세요." />
+            <Card>
+              <FailureNotice code="REPORT_MISSING" message="분석은 끝났지만 레포트가 없습니다. 영상을 다시 올려 주세요." />
+            </Card>
           )}
           {analysis.status !== 'queued' && analysis.status !== 'processing' && analysis.status !== 'done' ? (
             <Button label="영상 다시 올리기" onPress={() => router.replace('/upload')} />
           ) : null}
+          {/* 레포트 탭이 있으면 삭제는 기준 탭 맨 아래에 둔다. */}
+          {!tabbed || tab === 'basis' ? <Button label="분석 삭제" variant="danger" icon="trash" disabled={deleting} onPress={remove} /> : null}
         </>
       ) : notFound ? null : (
-        <Text>불러오는 중</Text>
+        <Text style={[type.body, { color: color.gray11 }]}>불러오는 중</Text>
       )}
-    </ScrollView>
+    </Screen>
   );
 }

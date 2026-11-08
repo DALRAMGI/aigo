@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { ActivityIndicator, Animated, Pressable, Text } from 'react-native';
+import { ActivityIndicator, Animated, Pressable, Text, type StyleProp, type ViewStyle } from 'react-native';
 import { color, radius, space, type } from '@/theme';
 import { Icon, type IconName } from './Icon';
 
@@ -13,9 +13,10 @@ const look: Record<ButtonVariant, { bg: string; fg: string; border?: string }> =
   emergency: { bg: color.danger, fg: color.white },
 };
 
-export function Button({ label, onPress, variant = 'primary', size = 'lg', icon, disabled, loading, secondary }: {
+export function Button({ label, onPress, variant = 'primary', size = 'lg', icon, disabled, loading, secondary, style }: {
   label: string; onPress: () => void; variant?: ButtonVariant; size?: 'lg' | 'md'; icon?: IconName;
   disabled?: boolean; loading?: boolean; secondary?: boolean; // secondary는 옛 속성
+  style?: StyleProp<ViewStyle>; // 바깥 틀용(flex 등)
 }) {
   const scale = useRef(new Animated.Value(1)).current;
   const spring = (to: number) => Animated.spring(scale, { toValue: to, useNativeDriver: true, speed: 40, bounciness: 0 }).start();
@@ -23,7 +24,7 @@ export function Button({ label, onPress, variant = 'primary', size = 'lg', icon,
   const { bg, fg, border } = look[secondary ? 'secondary' : variant];
   const dis = disabled; // 비활성은 회색, 로딩은 원래 색 유지
   return (
-    <Animated.View style={{ transform: [{ scale }] }}>
+    <Animated.View style={[{ transform: [{ scale }] }, style]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={label}
