@@ -6,9 +6,11 @@ import pytest
 from app.fault import FaultTable
 from app.pipeline import run as run_mod
 from app.pipeline.assess import AssessOut
+from app.pipeline.estimate import Estimate
 from app.pipeline.observe import Fact, Observation
 from app.pipeline.run import PIPELINE_VERSION, Context, run_pipeline
 from app.pipeline.scan import ScanResult, TrackPoint
+from app.report import Evidence
 from tests.fixtures import make_clips as mk
 from tests.fixtures.fake_llm import FakeLLM
 
@@ -200,6 +202,26 @@ def test_no_tracks_with_candidates_stays_low(clip_with_motion, tmp_path):
     ctx, _ = context(tmp_path, clip_with_motion, llm)
     res = run_pipeline(ctx)
     assert res.trace["track_count"] == 0 and res.trace["candidates"] and res.report.confidence == "low"
+
+
+def test_run_pipeline_passes_estimate(clip_with_motion, tmp_path, monkeypatch):
+    seen = []
+    est = Estimate(2.9, [Evidence(t=2.9, text="화면이 크게 흔들림"), Evidence(t=3.1, text="충돌음이 크게 남")])
+    monkeypatch.setattr(run_mod, "estimate_collision", lambda cands: seen.append(cands) or est)
+    llm = FakeLLM(observation(t=None, involvement="none", reason="접촉이 보이지 않습니다"))
+    ctx, _ = context(tmp_path, clip_with_motion, llm)
+    res = run_pipeline(ctx)
+    assert seen and [c.t for c in seen[0]] == [c["t"] for c in res.trace["candidates"]]
+    assert res.report.involvement == "party" and res.report.collision_t == 2.9 and res.report.summary.startswith("충돌 추정: ")
+    assert res.trace["estimate"] == {"t": 2.9, "facts": [{"t": 2.9, "text": "화면이 크게 흔들림"},
+                                                         {"t": 3.1, "text": "충돌음이 크게 남"}]}
+
+
+def test_no_candidates_leaves_no_estimate(clip_blank, tmp_path):
+    llm = FakeLLM(observation(t=None, involvement="none", reason="차가 보이지 않습니다"))
+    ctx, _ = context(tmp_path, clip_blank, llm)
+    res = run_pipeline(ctx)
+    assert res.trace["estimate"] is None and res.report.involvement == "none"
 
 
 def test_worker_runs_real_pipeline_and_saves_report(db, user, storage, clip_with_motion):

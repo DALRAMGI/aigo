@@ -10,6 +10,7 @@ from app.config import settings
 from app.errors import PipelineError  # noqa: F401  worker와 테스트가 여기서 가져간다.
 from app.llm import PROMPT_VERSION
 from app.pipeline.assess import assess
+from app.pipeline.estimate import estimate_collision
 from app.pipeline.focus import dense_keyframes, select_keyframes, uniform_keyframes
 from app.pipeline.locate import Candidate, drop_hood, find_candidates
 from app.pipeline.media import audio_envelope, extract_frames, normalize
@@ -113,7 +114,8 @@ def run_pipeline(ctx: Context) -> PipelineResult:
         d.update(frames=len(keyframes), extra_focus=extra_focus)
 
     with stage("assess") as d:
-        report = assess(observation, keyframes, ctx.table, ctx.llm, info.duration)
+        estimate = estimate_collision(candidates)  # 관찰이 접촉을 못 봤을 때만 assess가 쓴다.
+        report = assess(observation, keyframes, ctx.table, ctx.llm, info.duration, estimate)
         if not candidates or not tracks:  # 후보나 추적 없이 얻은 결과는 충돌을 봤더라도 낮음으로 둔다.
             report.confidence = "low"
         d.update(involvement=report.involvement, confidence=report.confidence)
@@ -122,5 +124,6 @@ def run_pipeline(ctx: Context) -> PipelineResult:
              "track_count": len(tracks), "scan_failed": scan_failed, "extra_focus": extra_focus,
              "model": settings.openai_model, "reasoning_effort": settings.openai_reasoning_effort,
              "prompt_version": PROMPT_VERSION, "llm_calls": ctx.llm.calls, "stage_seconds": seconds,
-             "observation": observation.model_dump(mode="json"), "first_observation": first_observation}
+             "observation": observation.model_dump(mode="json"), "first_observation": first_observation,
+             "estimate": {"t": estimate.t, "facts": [f.model_dump() for f in estimate.facts]} if estimate else None}
     return PipelineResult(report, trace, playback, _overlay(drop_hood(tracks, info.height), info.width, info.height))
