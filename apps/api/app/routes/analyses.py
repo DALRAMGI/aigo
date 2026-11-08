@@ -45,6 +45,7 @@ class AnalysisError(BaseModel):
 
 class AnalysisOut(BaseModel):
     id: int
+    source: str
     status: str
     stage: str | None
     progress: list[StageOut]
@@ -86,7 +87,7 @@ def _progress(a: Analysis) -> list[dict]:
 def _out(a: Analysis, storage: Storage) -> dict:
     done = a.status == AnalysisStatus.done
     return {
-        "id": a.id, "status": a.status.value, "stage": a.stage.value if a.stage else None,
+        "id": a.id, "source": a.source, "status": a.status.value, "stage": a.stage.value if a.stage else None,
         "progress": _progress(a),
         "report": a.report if done else None,
         "playback_url": storage.presign_get(a.playback_key) if done and a.playback_key else None,
