@@ -17,7 +17,8 @@ from app.report import CaseRef, LawRef  # noqa: E402
 OUT = Path(__file__).resolve().parent.parent / "data" / "fault_charts.json"
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 LAW = re.compile(r"^(\S+(?: 시행령| 시행규칙)?)\s+(제\d+조(?:의\d+)?)\s*\(([^)]*)\)")
-CASE = re.compile(r"^(\S+)\s+(\d{4})\.?\s*(\d{1,2})\.?\s*(\d{1,2})\.?\s*선고\s+(\S+)")
+CASE = re.compile(r"^(\S+(?: \S+)?)\s+(\d{4})\.?\s*(\d{1,2})\.?\s*(\d{1,2})\.?\s*선고\s*(\d{2,4}[가-힣A-Za-z]+\d+)")  # 사건번호만(뒤에 붙은 판결·결정·쉼표는 버린다)
+UNMATCHED: list[str] = []
 
 
 def parse(page: str, source: str) -> tuple[list[LawRef], list[CaseRef]]:
@@ -27,6 +28,8 @@ def parse(page: str, source: str) -> tuple[list[LawRef], list[CaseRef]]:
     cases: dict[str, CaseRef] = {}
     mode = None
     for line in lines:
+        if mode == "case" and "선고" in line and not CASE.match(line) and len(line) < 80:
+            UNMATCHED.append(line)  # 제목 줄처럼 짧은 것만 센다. 본문 문장은 건너뛴다.
         if line == "관련 법규":
             mode = "law"
         elif line == "판례·조정사례":
@@ -63,6 +66,7 @@ def main() -> None:
             print(f"{c['id']}: 법규 {len(laws)} 판례 {len(cases)}")
     OUT.write_text(json.dumps(charts, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print("실패:", failed or "없음")
+    print(f"경고: 판례처럼 보이나 형식이 맞지 않아 건너뛴 줄 {len(UNMATCHED)}개", *UNMATCHED, sep="\n")
 
 
 if __name__ == "__main__":

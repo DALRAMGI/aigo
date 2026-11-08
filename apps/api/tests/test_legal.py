@@ -32,6 +32,31 @@ def test_parse_space_before_title():
     assert (laws[0].article, laws[0].title) == ("제19조", "안전거리 확보 등")
 
 
+def case_numbers(line: str):
+    _, cases = parse(f"<div>판례·조정사례</div><strong>{line}</strong>", "s")
+    return [(c.court, c.number, c.url) for c in cases]
+
+
+def test_case_number_without_space_before_verdict():
+    assert case_numbers("대법원 1995. 8. 22. 선고 95다39359판결") == [
+        ("대법원", "95다39359", "https://www.law.go.kr/판례/(95다39359)")]
+
+
+def test_case_number_with_trailing_comma():
+    assert case_numbers("서울중앙지방법원 2012. 1. 5. 선고 2011가단34087, 2011가단40000 판결") == [
+        ("서울중앙지방법원", "2011가단34087", "s")]
+
+
+def test_case_number_decision():
+    assert case_numbers("대법원 2020. 3. 1. 선고 2019마1234 결정") == [
+        ("대법원", "2019마1234", "https://www.law.go.kr/판례/(2019마1234)")]
+
+
+def test_court_name_with_branch():
+    assert case_numbers("서울지방법원 북부지원 1993. 8. 2. 선고 92가단2008 판결 (차16-1)") == [
+        ("서울지방법원 북부지원", "92가단2008", "s")]
+
+
 def test_parse_missing_sections_returns_empty():
     assert parse("<div>내용 없음</div>", "s") == ([], [])
 
