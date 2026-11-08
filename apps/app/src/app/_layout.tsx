@@ -46,7 +46,6 @@ function Routes() {
       <Stack.Screen name="share" options={{ headerShown: true, title: '공유받은 영상' }} />
       <Stack.Protected guard={isLoaded && !!isSignedIn}>
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="upload" options={{ headerShown: true }} />
         <Stack.Screen name="analyses/[id]" options={{ headerShown: true }} />
       </Stack.Protected>
       <Stack.Protected guard={isLoaded && !isSignedIn}>
