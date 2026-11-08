@@ -20,6 +20,8 @@ const base: Report = {
     chart_id: 'c', chart_title: evil, source_url: evil, me: 'A', base: 50, my_min: 40, my_max: 60,
     steps: [{ label: evil, delta: -10, evidence: { t: 2, text: evil } }],
     unknown: [evil],
+    laws: [],
+    cases: [],
   },
   fault_note: evil,
   serious_violations: [{ item: evil, likelihood: 'low', evidence: { t: 3, text: evil }, party: 'unknown' }],

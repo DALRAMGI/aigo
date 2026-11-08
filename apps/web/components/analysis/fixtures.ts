@@ -33,6 +33,8 @@ export const PARTY: Report = {
       { label: "상대 교차로 내 진로 방해", delta: -10, evidence: FACTS[2] },
     ],
     unknown: ["내 제한속도 초과 여부"],
+    laws: [],
+    cases: [],
   },
   fault_note: null,
   serious_violations: [

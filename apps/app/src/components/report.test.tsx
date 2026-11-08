@@ -22,7 +22,7 @@ const report: Report = {
   timeline: [{ t: 9, text: '상대 차가 왼쪽에서 차로를 바꿈' }],
   facts: [],
   unseen: ['신호 상태'],
-  fault: { chart_id: '차43-2', chart_title: '진로변경 사고', source_url: 'https://example.com', me: 'A', base: 30, my_min: 20, my_max: 40, steps: [], unknown: [] },
+  fault: { chart_id: '차43-2', chart_title: '진로변경 사고', source_url: 'https://example.com', me: 'A', base: 30, my_min: 20, my_max: 40, steps: [], unknown: [], laws: [], cases: [] },
   fault_note: null,
   serious_violations: [],
   favorable: [],

@@ -17,6 +17,20 @@ class FaultStep(BaseModel):
     evidence: Evidence
 
 
+class LawRef(BaseModel):
+    name: str
+    article: str
+    title: str
+    url: str
+
+
+class CaseRef(BaseModel):
+    court: str
+    date: str
+    number: str
+    url: str
+
+
 class FaultAssessment(BaseModel):
     chart_id: str
     chart_title: str
@@ -27,6 +41,8 @@ class FaultAssessment(BaseModel):
     my_max: int
     steps: list[FaultStep]
     unknown: list[str]
+    laws: list[LawRef] = []  # 이 칸이 없던 저장 레포트도 읽힌다.
+    cases: list[CaseRef] = []
 
 
 class SeriousViolation(BaseModel):

@@ -125,7 +125,8 @@ def _fault(chart: Chart, out: AssessOut, cite) -> FaultAssessment:
         chart_id=chart.id, chart_title=chart.title, source_url=chart.source, me=out.me, base=res.base,
         my_min=res.my_min, my_max=res.my_max,
         steps=[FaultStep(label=name(s.id), delta=s.effect, evidence=backed[s.id]) for s in res.steps],
-        unknown=[name(i) for i in dict.fromkeys(unknown) if i not in backed])
+        unknown=[name(i) for i in dict.fromkeys(unknown) if i not in backed],
+        laws=chart.laws, cases=chart.cases)
 
 
 def assess(observation: Observation, keyframes: list[Keyframe], table: FaultTable, llm, duration: float) -> Report:
