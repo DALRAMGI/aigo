@@ -13,15 +13,15 @@ const look: Record<ButtonVariant, { bg: string; fg: string; border?: string }> =
   emergency: { bg: color.danger, fg: color.white },
 };
 
-export function Button({ label, onPress, variant = 'primary', size = 'lg', icon, disabled, loading, secondary, style }: {
+export function Button({ label, onPress, variant = 'primary', size = 'lg', icon, disabled, loading, style }: {
   label: string; onPress: () => void; variant?: ButtonVariant; size?: 'lg' | 'md'; icon?: IconName;
-  disabled?: boolean; loading?: boolean; secondary?: boolean; // secondary는 옛 속성
+  disabled?: boolean; loading?: boolean;
   style?: StyleProp<ViewStyle>; // 바깥 틀용(flex 등)
 }) {
   const scale = useRef(new Animated.Value(1)).current;
   const spring = (to: number) => Animated.spring(scale, { toValue: to, useNativeDriver: true, speed: 40, bounciness: 0 }).start();
   const off = disabled || loading;
-  const { bg, fg, border } = look[secondary ? 'secondary' : variant];
+  const { bg, fg, border } = look[variant];
   const dis = disabled; // 비활성은 회색, 로딩은 원래 색 유지
   return (
     <Animated.View style={[{ transform: [{ scale }] }, style]}>

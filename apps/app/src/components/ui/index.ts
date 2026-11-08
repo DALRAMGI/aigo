@@ -15,5 +15,4 @@ export { EmptyState } from './EmptyState';
 export { SegmentedControl } from './SegmentedControl';
 export { SegmentGauge } from './SegmentGauge';
 export { StepList } from './StepList';
-export { Input, ErrorText, styles } from './legacy';
 export { FloatingTabBar, TAB_ITEMS } from './FloatingTabBar';

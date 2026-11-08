@@ -11,13 +11,6 @@ test('버튼은 비활성일 때 누를 수 없고 role이 button이다', async 
   expect(onPress).not.toHaveBeenCalled();
 });
 
-test('옛 secondary 속성도 동작한다', async () => {
-  const onPress = jest.fn();
-  await render(<Button label="지우기" secondary onPress={onPress} />);
-  await fireEvent.press(screen.getByRole('button', { name: '지우기' }));
-  expect(onPress).toHaveBeenCalled();
-});
-
 test('시각 칩은 "0:11 장면으로 이동"으로 읽히고 누르면 초를 넘긴다', async () => {
   const onPress = jest.fn();
   await render(<TimeChip seconds={11.6} onPress={onPress} />);
