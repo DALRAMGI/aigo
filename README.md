@@ -128,6 +128,15 @@ web (`apps/web/.env.example`)
 | `NEXT_PUBLIC_TOSS_CLIENT_KEY` | `test_gck_` 테스트 키. 빌드 때 번들에 들어간다 |
 | `CLERK_SECRET_KEY` | 서버 쪽 Clerk |
 
+## DashPi 업로드 키
+
+DashPi 블랙박스는 사고 클립을 잘라 저장하면 같은 계정으로 AIGO에 올린다. 올라간 분석은 웹과 앱 목록에 `DashPi` 배지로 보인다. Pi는 화면 로그인을 할 수 없으므로 계정에 묶인 Clerk API Key를 쓴다.
+
+- Clerk 대시보드 Configure → Developers → API keys에서 기능을 켠다. 사용자·조직이 직접 키를 만드는 옵션은 끈다.
+- API Key는 분석 생성(`POST /api/v1/analyses`)과 제출(`POST /api/v1/analyses/{id}/submit`)에서만 받는다. 다른 API는 401이다.
+- 키 발급: `cd apps/api && uv run python scripts/create_dashpi_key.py <AIGO 로그인 이메일>`. 출력된 키를 Pi의 `~/.config/dashpi/aigo.env`에 넣는다(DashPi 저장소 `aigo.env.example` 참고).
+- 키를 Pi에 넣는 것을 영상 분석 동의로 본다. Pi는 업로드할 때 `consent: true`를 보낸다. 하루 한도와 영상 크기 제한은 웹과 같다.
+
 ## Railway 배포
 
 프로젝트 `AIGO`: `web`, `api`, `worker`, Postgres, Bucket `aigo-videos`. 모두 싱가포르 리전(`asia-southeast1-eqsg3a`, Bucket은 `sin`)에 있다. 설정은 서비스에 들어 있고 저장소에는 Dockerfile만 있다(Railway가 설정 파일 경로 지정을 더는 받지 않는다).

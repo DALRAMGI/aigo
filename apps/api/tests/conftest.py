@@ -63,6 +63,17 @@ class FakeClerk:
         self.fail_delete = False
         self.on_get = None  # 동시성 테스트용 훅
         self.users = SimpleNamespace(get=self._get, delete=self._delete)
+        # api_keys.verify_api_key: 결과를 돌려주거나 api_keys_error를 던진다.
+        self.api_keys_result = SimpleNamespace(subject="user_pi", revoked=False, expired=False)
+        self.api_keys_error: Exception | None = None
+        self.verified: list[str] = []
+        self.api_keys = SimpleNamespace(verify_api_key=self._verify_api_key)
+
+    def _verify_api_key(self, *, secret: str):
+        self.verified.append(secret)
+        if self.api_keys_error:
+            raise self.api_keys_error
+        return self.api_keys_result
 
     def _get(self, *, user_id: str):
         self.get_calls.append(user_id)
