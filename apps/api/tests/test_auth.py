@@ -212,3 +212,10 @@ def test_api_key_only_on_upload_routes(client, fake_clerk, method, path):
     r = client.request(method, path, headers=AK, json={})
     assert_401(r)
     assert fake_clerk.verified == []
+
+
+@pytest.mark.parametrize("status", [401, 403, 429])
+def test_clerk_side_errors_are_503_not_key_errors(client, fake_clerk, status):
+    fake_clerk.api_keys_error = _clerk_error(status)
+    r = client.post("/api/v1/analyses", json=UPLOAD, headers=AK)
+    assert r.status_code == 503 and r.json()["code"] == "AUTH_PROVIDER_UNAVAILABLE"

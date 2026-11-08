@@ -78,7 +78,8 @@ def _api_key_clerk_id(secret: str, clerk: Clerk) -> str:
     try:
         key = clerk.api_keys.verify_api_key(secret=secret)
     except ClerkBaseError as e:
-        if 400 <= e.status_code < 500:
+        # 400/404만 키 자체의 문제다. Clerk의 401/403(서버 설정)과 429(요청 제한)는 Pi 키 탓이 아니다.
+        if e.status_code in (400, 404):
             raise _unauthorized() from e
         raise _clerk_down() from e
     except Exception as e:
