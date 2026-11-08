@@ -1,13 +1,21 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, RefreshControl, Text } from 'react-native';
+import { Alert, Pressable, RefreshControl, Text, View } from 'react-native';
 import { AnalysisRow } from '@/components/AnalysisRow';
-import { Button, Card, EmptyState, Screen, TopBar } from '@/components/ui';
+import { Button, Card, EmptyState, Icon, PageTitle, Screen, SectionTitle, SegmentedControl } from '@/components/ui';
+import { circleButtonStyle } from '@/components/ui/TopBar';
 import type { Analysis } from '@/lib/analysis';
 import { useApi } from '@/lib/api';
 import type { ApiFailure } from '@/lib/api';
 import { deleteReportPdf } from '@/lib/cache';
-import { color, type as t } from '@/theme';
+import { matches, type ListFilter } from '@/lib/ui-logic';
+import { color, space, type as t } from '@/theme';
+
+const FILTERS: { value: ListFilter; label: string }[] = [
+  { value: 'all', label: '전체' },
+  { value: 'done', label: '완료' },
+  { value: 'running', label: '진행 중' },
+];
 
 export default function AnalysesScreen() {
   const api = useApi();
@@ -15,6 +23,7 @@ export default function AnalysesScreen() {
   const [items, setItems] = useState<Analysis[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [filter, setFilter] = useState<ListFilter>('all');
 
   // ponytail: 서버 최대 100건까지만 보여 준다. 더 쌓이면 offset으로 이어 받는다.
   const load = useCallback(async () => {
@@ -32,6 +41,8 @@ export default function AnalysesScreen() {
       load();
     }, [load]),
   );
+
+  const shown = items?.filter((a) => matches(filter, a.status)) ?? [];
 
   const refresh = async () => {
     setRefreshing(true);
@@ -61,22 +72,40 @@ export default function AnalysesScreen() {
 
   return (
     <Screen scroll tabInset refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
-      <TopBar title="내 분석" />
+      <PageTitle
+        title="내 분석"
+        right={
+          <Pressable accessibilityRole="button" accessibilityLabel="영상 올리기" onPress={() => router.push('/upload')} style={circleButtonStyle}>
+            <Icon name="upload" size={18} color={color.ink} />
+          </Pressable>
+        }
+      />
+      <SegmentedControl options={FILTERS} value={filter} onChange={setFilter} />
       {error ? <Text style={{ ...t.caption, color: color.danger600 }}>{error}</Text> : null}
       {items === null ? (
         <Text style={{ ...t.body, color: color.gray11 }}>불러오는 중</Text>
-      ) : items.length === 0 ? (
-        <Card>
-          <EmptyState icon="video" title="아직 분석한 영상이 없어요">
-            <Button label="영상 올리기" onPress={() => router.push('/upload')} />
-          </EmptyState>
-        </Card>
       ) : (
-        <Card>
-          {items.map((a) => (
-            <AnalysisRow key={a.id} a={a} onPress={() => router.push(`/analyses/${a.id}`)} onDelete={() => remove(a.id)} />
-          ))}
-        </Card>
+        <>
+          <SectionTitle title="분석 목록" meta={`${shown.length}건`} />
+          {items.length === 0 ? (
+            <Card>
+              <EmptyState icon="video" title="아직 분석한 영상이 없어요">
+                <Button label="영상 올리기" onPress={() => router.push('/upload')} />
+              </EmptyState>
+            </Card>
+          ) : (
+            <View style={{ gap: space[2] }}>
+              {shown.length ? (
+                shown.map((a) => (
+                  <AnalysisRow key={a.id} a={a} onPress={() => router.push(`/analyses/${a.id}`)} onDelete={() => remove(a.id)} />
+                ))
+              ) : (
+                <Text style={{ ...t.body, color: color.gray11, textAlign: 'center', paddingVertical: space[4] }}>해당하는 분석이 없어요</Text>
+              )}
+            </View>
+          )}
+          {items.length ? <Button variant="secondary" icon="upload" label="영상 올리기" onPress={() => router.push('/upload')} /> : null}
+        </>
       )}
     </Screen>
   );
