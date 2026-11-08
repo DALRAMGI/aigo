@@ -93,6 +93,3 @@ place(logo, box, 1024, 0.66).save(ROOT / "adaptive-foreground.png")
 mono = np.asarray(logo).astype(float)
 mono[..., :3] = 255
 place(img(mono), box, 1024, 0.66).save(ROOT / "adaptive-monochrome.png")
-
-# 스플래시: 모션 첫 장면(A만). 로고 전체 기준으로 같은 위치에 둔다.
-place(ims["layer-a"], box, 1024, 0.4).save(ROOT / "splash-a.png")
