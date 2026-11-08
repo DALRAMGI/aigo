@@ -96,6 +96,8 @@ cd apps/app && pnpm exec tsc --noEmit && pnpm test
 cd apps/web && E2E_VIDEO=<영상 경로> BASE_URL=<웹 주소> pnpm playwright test e2e/journey.spec.ts
 ```
 
+GitHub Actions(`.github/workflows/ci.yml`)가 `dev`·`main`으로 가는 PR과 푸시마다 위 세 줄을 돌린다. 느린 YOLO 테스트와 e2e는 CI에서 돌리지 않는다. 비밀값은 쓰지 않는다. 팀원 참여 방법은 [CONTRIBUTING.md](CONTRIBUTING.md).
+
 API 응답을 바꾸면 타입을 다시 만든다.
 
 ```bash
