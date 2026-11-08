@@ -35,6 +35,7 @@ const report: Report = {
 
 const analysis = (r: Partial<Analysis>): Analysis => ({
   id: 12,
+  source: 'upload',
   status: 'done',
   stage: null,
   progress: [],

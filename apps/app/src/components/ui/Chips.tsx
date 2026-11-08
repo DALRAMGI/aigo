@@ -27,6 +27,11 @@ export function StatusChip({ tone, label }: { tone: Tone; label: string }) {
   );
 }
 
+// DashPi 블랙박스가 올린 분석에만 붙는 출처 칩
+export function SourceChip({ source }: { source: string }) {
+  return source === 'dashpi' ? <StatusChip tone="neutral" label="DashPi" /> : null;
+}
+
 // onPress가 없으면(재생 영상 없음) 버튼이 아닌 글자로 그린다
 export function TimeChip({ seconds, onPress }: { seconds: number; onPress?: (seconds: number) => void }) {
   const t = formatTime(seconds);

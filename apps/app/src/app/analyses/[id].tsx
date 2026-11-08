@@ -2,7 +2,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, Text, type ScrollViewInstance } from 'react-native';
 import { ErrorLine, FailureNotice, ProgressView, ReportView, type ReportTab } from '@/components/analysis';
-import { Button, Card, Icon, Screen, TopBar } from '@/components/ui';
+import { Button, Card, Icon, Screen, TopBar, SourceChip } from '@/components/ui';
 import { circleButtonStyle } from '@/components/ui/TopBar';
 import { analysisTitle, seoulDate, useAnalysis } from '@/lib/analysis';
 import { useApi } from '@/lib/api';
@@ -86,6 +86,7 @@ export default function AnalysisScreen() {
       <TopBar title={analysis ? analysisTitle(analysis) : `분석 #${id}`} subtitle={subtitle} onBack={back} right={shareButton} />
       {analysis ? (
         <>
+          <SourceChip source={analysis.source} />
           <ErrorLine>{error}</ErrorLine>
           {analysis.status !== 'done' ? (
             <ProgressView analysis={analysis} stale={stale} />
