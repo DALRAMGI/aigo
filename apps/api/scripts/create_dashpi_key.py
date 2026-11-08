@@ -19,7 +19,7 @@ def main() -> None:
     if len(sys.argv) != 2:
         sys.exit("사용: create_dashpi_key.py <이메일>")
     clerk = Clerk(bearer_auth=settings.clerk_secret_key)
-    users = clerk.users.list(email_address=[sys.argv[1]])
+    users = clerk.users.list(request={"email_address": [sys.argv[1]]})
     if len(users) != 1:
         sys.exit(f"이메일로 사용자를 하나로 찾지 못했습니다: {len(users)}명")
     key = clerk.api_keys.create_api_key(name="DashPi", subject=users[0].id)
