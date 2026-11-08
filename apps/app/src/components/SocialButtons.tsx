@@ -3,7 +3,9 @@ import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 import { clerkMessage } from '@/lib/clerkMessage';
-import { Button, ErrorText } from './ui';
+import { Text } from 'react-native';
+import { color, type as t } from '@/theme';
+import { Button } from './ui';
 
 // 브라우저에서 앱으로 돌아온 인증 세션을 마무리한다.
 WebBrowser.maybeCompleteAuthSession();
@@ -40,9 +42,9 @@ export function SocialButtons() {
   return (
     <>
       {PROVIDERS.map((p) => (
-        <Button key={p.strategy} label={p.label} secondary disabled={pending} onPress={() => start(p.strategy)} />
+        <Button key={p.strategy} label={p.label} variant="secondary" disabled={pending} onPress={() => start(p.strategy)} />
       ))}
-      <ErrorText>{error}</ErrorText>
+      {error ? <Text style={[t.caption, { color: color.danger600 }]}>{error}</Text> : null}
     </>
   );
 }
