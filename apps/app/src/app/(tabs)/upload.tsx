@@ -1,7 +1,7 @@
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as ImagePicker from 'expo-image-picker';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ScrollView, Switch, Text, View } from 'react-native';
 import { FailureNotice } from '@/components/analysis';
@@ -11,6 +11,8 @@ import { ApiFailure, useApi } from '@/lib/api';
 import { registerPush } from '@/lib/push';
 import { checkTrim, checkVideo, fileSize, isTicketExpired, uploadVideo, videoName, type UploadTicket } from '@/lib/upload';
 import { deleteCached } from '@/lib/cache';
+import { nextUploadState } from '@/lib/upload-state';
+import { tabBarSpace } from '@/theme';
 
 const CONSENT_TEXT = '영상에는 번호판과 얼굴이 담길 수 있고, 분석을 위해 프레임이 OpenAI로 전송되며, 분석을 삭제하면 파일까지 지웁니다.';
 const KEEP_AWAKE_TAG = 'aigo-upload';
@@ -47,7 +49,12 @@ export default function UploadScreen() {
 
   useEffect(() => () => abort.current.abort(), []);
 
-  const choose = (next: Picked) => {
+  // 같은 영상이면 그대로 둔다(탭을 오가거나 같은 영상이 다시 공유돼도 올리던 attempt를 살린다).
+  const choose = (next: Picked, event: 'shared' | 'picked') => {
+    const r = nextUploadState({ fileUri: file?.uri ?? null, attemptUri: attempt.current?.uri ?? null }, event, next.uri);
+    if (!r.resetFile) return;
+    if (r.dropAttempt) attempt.current = null;
+    if (event === 'shared') setConsent(false);
     const problem = checkVideo(next.name, next.size);
     setFile(problem ? null : next);
     setFileError(problem);
@@ -58,13 +65,13 @@ export default function UploadScreen() {
   // 다른 화면(공유 메뉴, 구간 자르기)이 넘긴 파일. 크기와 이름이 없으면 여기서 구한다.
   const { uri, name, size } = params;
   useEffect(() => {
-    if (uri) choose({ uri, name: videoName(uri, name), size: Number(size) || sizeOf(uri), mime: '', duration: null });
+    if (uri) choose({ uri, name: videoName(uri, name), size: Number(size) || sizeOf(uri), mime: '', duration: null }, 'shared');
   }, [uri, name, size]);
 
   async function pick() {
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['videos'] });
     const a = res.canceled ? null : res.assets[0];
-    if (a) choose({ uri: a.uri, name: videoName(a.uri, a.fileName, a.mimeType), size: a.fileSize || sizeOf(a.uri), mime: a.mimeType ?? '', duration: a.duration ? a.duration / 1000 : null });
+    if (a) choose({ uri: a.uri, name: videoName(a.uri, a.fileName, a.mimeType), size: a.fileSize || sizeOf(a.uri), mime: a.mimeType ?? '', duration: a.duration ? a.duration / 1000 : null }, 'picked');
   }
 
   async function start() {
@@ -92,7 +99,17 @@ export default function UploadScreen() {
       await api(`/api/v1/analyses/${a.ticket.id}/submit`, { method: 'POST' });
       registerPush(api, true); // 첫 분석을 낸 뒤에 알림 권한을 묻는다. 기다리지 않는다.
       deleteCached(file.uri); // 올린 뒤에는 앱 캐시의 복사본이 필요 없다.
-      router.replace(`/analyses/${a.ticket.id}`);
+      const id = a.ticket.id;
+      // 제출이 끝났으니 탭에 남은 영상과 attempt를 비운다.
+      if (nextUploadState({ fileUri: file.uri, attemptUri: a.uri }, 'submitted').resetFile) {
+        attempt.current = null;
+        setFile(null);
+        setTrim({ start: null, end: null });
+        setConsent(false);
+        setFailure(null);
+        setPhase('idle');
+      }
+      router.replace(`/analyses/${id}`);
     } catch (e) {
       if (abort.current.signal.aborted) return; // 화면을 떠났다.
       const err = e instanceof ApiFailure ? e : new ApiFailure(0, 'UPLOAD_FAILED', '영상을 올리지 못했습니다. 다시 시도해 주세요.');
@@ -111,8 +128,8 @@ export default function UploadScreen() {
   const trimProblem = file ? checkTrim(file.duration, trim) : '';
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 24, gap: 12 }}>
-      <Stack.Screen options={{ title: '영상 분석하기' }} />
+    <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 24 + tabBarSpace, gap: 12 }}>
+      <Text style={{ fontSize: 20, fontWeight: '700' }}>영상 분석하기</Text>
       <Button label={file ? '다른 영상 고르기' : '갤러리에서 영상 고르기'} secondary disabled={busy} onPress={pick} />
       {file ? (
         <Text>
