@@ -103,14 +103,23 @@ def verdict(m: dict, confirmed: int, unscored: int = 0) -> str:
     return ("합격" if passed(m) else "미달") + f" (처리 시간 {TIME_LIMIT_S}초 기준은 Railway에서 따로 잰다)"
 
 
+def _frame_evidence(r: dict) -> list[dict]:
+    """합격선은 프레임 근거만 센다. source가 없는 옛 행은 프레임이다."""
+    return [ev for ev in r.get("evidence", []) if ev.get("source", "frame") == "frame"]
+
+
+def sensor_count(rows: list[dict]) -> int:
+    return sum(ev.get("source") == "sensor" for r in rows for ev in r.get("evidence", []))
+
+
 def evidence_sample(rows: list[dict], n: int) -> list[dict]:
-    items = [{"file": r["file"], **ev} for r in rows for ev in r.get("evidence", [])]
+    items = [{"file": r["file"], **ev} for r in rows for ev in _frame_evidence(r)]
     return sorted(random.Random(0).sample(items, min(n, len(items))), key=lambda i: (i["file"], i["t"]))
 
 
 def evidence_rate(checks: list[dict], rows: list[dict], draft: bool) -> tuple[int, int] | None:
     """이 실행의 근거를 사람이 본 결과만 센다. 다른 실행의 검사와 같은 항목의 반복은 표본이 아니다."""
-    shown = {(r["file"], ev["t"]) for r in rows for ev in r.get("evidence", [])}
+    shown = {(r["file"], ev["t"]) for r in rows for ev in _frame_evidence(r)}
     used = {(c["file"], c["t"]): c["ok"] for c in checks if (draft or c.get("checked_by")) and (c["file"], c["t"]) in shown}
     return (sum(used.values()), len(used)) if len(used) >= EVIDENCE_SAMPLE else None
 
@@ -152,6 +161,7 @@ def run_clip(e: dict, video: Path) -> dict:
     from app.errors import PipelineError
     from app.fault import FaultTable
     from app.llm import LLM
+    from app.pipeline.estimate import SENSOR_TEXT
     from app.pipeline.run import Context, run_pipeline
 
     llm = LLM()
@@ -165,13 +175,15 @@ def run_clip(e: dict, video: Path) -> dict:
             raise ClipFailed(err.code, cost(llm.calls, settings.openai_model)) from err
     rep, fault = res.report, res.report.fault
     evidence = [*rep.timeline, *(s.evidence for s in fault.steps)] if fault else list(rep.timeline)
+    sensor = {(f["t"], f["text"]) for f in (res.trace.get("estimate") or {}).get("facts", [])}
+    tag = lambda v: "sensor" if v.text in SENSOR_TEXT.values() and (v.t, v.text) in sensor else "frame"  # noqa: E731
     return {"file": e["file"], "status": "ok", "involvement": rep.involvement, "collision_t": rep.collision_t,
             "chart_id": fault.chart_id if fault else None, "me": fault.me if fault else None,
             "my_min": fault.my_min if fault else None, "my_max": fault.my_max if fault else None,
             "confidence": rep.confidence, "severity": rep.severity, "scene": res.trace["observation"]["scene"],
             "extra_focus": res.trace["extra_focus"], "unknown": fault.unknown if fault else [],
             "serious": [v.model_dump(exclude={"evidence"}) for v in rep.serious_violations],
-            "evidence": [{"t": v.t, "text": v.text} for v in evidence], "candidates": res.trace["candidates"], "summary": rep.summary, "reason": rep.reason,
+            "evidence": [{"t": v.t, "text": v.text, "source": tag(v)} for v in evidence], "candidates": res.trace["candidates"], "summary": rep.summary, "reason": rep.reason,
             "seconds": round(time.perf_counter() - started, 1), "stage_seconds": res.trace["stage_seconds"],
             "calls": len(llm.calls), "cost": round(cost(llm.calls, settings.openai_model), 4)}
 
@@ -180,11 +192,12 @@ def _rate(v: tuple[int, int] | None) -> str:
     return "미측정" if v is None or not v[1] else f"{v[0]}/{v[1]} ({v[0] / v[1]:.0%})"
 
 
-def _table(pairs: list[tuple[dict, dict]], evidence: tuple[int, int] | None = None) -> list[str]:
+def _table(pairs: list[tuple[dict, dict]], evidence: tuple[int, int] | None = None, sensor: int = 0) -> list[str]:
     m = metrics(pairs)
     lines = ["| 지표 | 값 |", "|---|---|", *(f"| {LABELS[k]} | {_rate(m[k])} |" for k in LABELS)]
     if evidence is not None:
         lines.append(f"| 근거 시각 표본 검사 | {_rate(evidence)} |")
+        lines.append(f"| 근거 시각 표본(센서) | {sensor} |")
     if m["not_evaluated"]:
         lines.append(f"| 돌리지 못한 사고 없는 영상 | {m['not_evaluated']}개 |")
     return lines
@@ -212,7 +225,7 @@ def render(entries: list[dict], rows: list[dict], checks: list[dict], meta: dict
               f"채점 {len(used)}개, 실행 {len(ran)}/{len(rows)}개, 비용 ${sum(r['cost'] for r in rows):.2f}", ""]
     if seconds:
         lines += [f"처리 시간(이 컴퓨터): 중앙값 {seconds[len(seconds) // 2]}초, 최대 {seconds[-1]}초. Railway 값이 아니다.", ""]
-    lines += ["## 전체", "", *_table(pairs, evidence or (0, 0)), ""]
+    lines += ["## 전체", "", *_table(pairs, evidence or (0, 0), sensor_count(rows)), ""]
     for split in SPLITS:
         part = [p for p in pairs if p[0]["split"] == split]
         if part:

@@ -130,6 +130,7 @@ def test_verdict_never_passes_without_evidence_check():
 
 def test_draft_report_is_marked_and_claims_no_verdict():
     text = ev.render([entry(checked_by="")], [row()], [], {"model": "gpt-5.5"}, draft=True)
+    assert "| 근거 시각 표본(센서) | 0 |" in text
     assert "초안 정답 기준" in text
     assert "합격" not in text.replace("합격선", "")
 
@@ -307,9 +308,35 @@ def test_run_clip_saves_candidates(monkeypatch):
     cands = [{"t": 1.0, "score": 0.5, "signals": {"box": 0.5}}]
     rep = NS(timeline=[], fault=None, involvement="none", collision_t=None, confidence="low", severity=None,
              summary="", reason="", serious_violations=[])
-    trace = {"candidates": cands, "observation": {"scene": "x"}, "extra_focus": False, "stage_seconds": {}}
+    trace = {"estimate": None, "candidates": cands, "observation": {"scene": "x"}, "extra_focus": False, "stage_seconds": {}}
     monkeypatch.setattr("app.llm.LLM", lambda: NS(calls=[]))
     monkeypatch.setattr("app.fault.FaultTable.load", classmethod(lambda cls: None))
     monkeypatch.setattr("app.pipeline.run.run_pipeline", lambda ctx: NS(report=rep, trace=trace))
     video = ROOT / "tests" / "test_evaluate.py"  # 내용은 쓰지 않는다. 복사만 된다.
     assert ev.run_clip(entry(), video)["candidates"] == cands
+
+
+def test_evidence_sample_counts_frame_only():
+    ev_rows = [{"t": float(i), "text": "x", "source": "frame"} for i in range(ev.EVIDENCE_SAMPLE)]
+    ev_rows += [{"t": 99.0, "text": "충돌음이 크게 남", "source": "sensor"}]
+    rows = [row(evidence=ev_rows)]
+    checks = [{"file": "a.mp4", "t": e["t"], "ok": True, "checked_by": "팀"} for e in ev_rows]
+    assert ev.evidence_rate(checks, rows, draft=False) == (ev.EVIDENCE_SAMPLE, ev.EVIDENCE_SAMPLE)
+    assert all(i["source"] == "frame" for i in ev.evidence_sample(rows, 100))
+    assert ev.sensor_count(rows) == 1
+
+
+def test_run_clip_tags_sensor_evidence(monkeypatch):
+    from types import SimpleNamespace as NS
+
+    sensor = {"t": 3.0, "text": "화면이 크게 흔들림"}
+    tl = [NS(t=2.0, text="접촉"), NS(**sensor), NS(t=3.0, text="화면이 크게 흔들림 같은 프레임 문장")]
+    rep = NS(timeline=tl, fault=None, involvement="party", collision_t=3.0, confidence="low", severity=None,
+             summary="", reason=None, serious_violations=[])
+    trace = {"estimate": {"t": 3.0, "facts": [sensor]}, "candidates": [], "observation": {"scene": "x"},
+             "extra_focus": False, "stage_seconds": {}}
+    monkeypatch.setattr("app.llm.LLM", lambda: NS(calls=[]))
+    monkeypatch.setattr("app.fault.FaultTable.load", classmethod(lambda cls: None))
+    monkeypatch.setattr("app.pipeline.run.run_pipeline", lambda ctx: NS(report=rep, trace=trace))
+    got = ev.run_clip(entry(), ROOT / "tests" / "test_evaluate.py")["evidence"]
+    assert [g["source"] for g in got] == ["frame", "sensor", "frame"]
