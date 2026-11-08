@@ -28,6 +28,19 @@ test('1.4초 모션이 끝나면 onDone을 한 번 부른다', async () => {
   expect(onDone).toHaveBeenCalledTimes(1);
 });
 
+test('부모가 새 onDone을 넘겨 다시 그려도 모션은 1.4초에 한 번만 끝난다', async () => {
+  const first = jest.fn();
+  const second = jest.fn();
+  const view = await render(<Splash onDone={first} />);
+  await act(async () => { jest.advanceTimersByTime(1000); });
+  await view.rerender(<Splash onDone={second} />);
+  await act(async () => { jest.advanceTimersByTime(399); });
+  expect(second).not.toHaveBeenCalled();
+  await act(async () => { jest.advanceTimersByTime(1); });
+  expect(first).not.toHaveBeenCalled();
+  expect(second).toHaveBeenCalledTimes(1);
+});
+
 test('모션은 화면 읽기에 AIGO로 읽힌다', async () => {
   await render(<Splash onDone={() => {}} />);
   expect(screen.getByLabelText('AIGO')).toBeTruthy();

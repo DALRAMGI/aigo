@@ -2,8 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Animated, Easing, Image, StyleSheet, View } from 'react-native';
 import { color } from '@/theme';
 
-// 네이티브 스플래시(splash-a.png, 폭 480pt, 1024 캔버스에서 A 폭 395)와 첫 프레임이 이어지도록
-// 로고 칸 크기를 A 폭 185pt에 맞춘다: 185 / (767 / 1134) ≈ 273.
+// 네이티브 스플래시는 #1C1C1C 바탕만 보인다(이미지 없음). 그래서 이 모션이 A의 등장부터 그대로 보여 준다.
 const S = 273;
 const WORD_W = 200;
 const WORD_H = (WORD_W * 410) / 1374;
@@ -24,18 +23,22 @@ export function Splash({ onDone }: { onDone: () => void }) {
   const star = useRef(new Animated.Value(0)).current;
   const word = useRef(new Animated.Value(0)).current;
 
+  // 부모가 매번 새 함수를 넘겨도 모션이 다시 시작되지 않도록 최신 콜백만 ref로 들고 있다.
+  const cb = useRef(onDone);
+  cb.current = onDone;
+
   useEffect(() => {
     // 완료 시점은 애니메이션 콜백이 아니라 타이머로 정한다(결정적이고 테스트하기 쉽다).
-    const t = setTimeout(onDone, TOTAL);
+    const t = setTimeout(() => cb.current(), TOTAL);
     const anim = Animated.parallel([
       run(a, 1, 450, 0, Easing.out(Easing.quad)),
       run(road, 1, 700, 300, Easing.bezier(0.6, 0, 0.2, 1), false), // 너비는 네이티브 드라이버를 못 쓴다
       run(star, 1, 400, 1000, Easing.bezier(0.3, 1.6, 0.5, 1)),
-      run(word, 1, 400, 1050, Easing.out(Easing.quad)),
+      run(word, 1, 350, 1050, Easing.out(Easing.quad)),
     ]);
     anim.start();
     return () => { clearTimeout(t); anim.stop(); };
-  }, [a, road, star, word, onDone]);
+  }, [a, road, star, word]);
 
   const rise = (v: Animated.Value) => ({
     opacity: v,
