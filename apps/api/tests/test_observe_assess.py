@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import cv2
@@ -11,7 +12,7 @@ from app.pipeline.assess import (ESTIMATE_PREFIX, NO_CHART, NO_COLLISION, Assess
 from app.pipeline.estimate import Estimate
 from app.pipeline.focus import Keyframe
 from app.pipeline.locate import Candidate
-from app.pipeline.observe import Fact, Observation, observe, outside_windows, recheck_time
+from app.pipeline.observe import Fact, Observation, near_frame, observe, outside_windows, recheck_time
 from app.pipeline.scan import TrackPoint
 from app.report import CaseRef, Evidence, LawRef, SeriousViolation
 from tests.fixtures.fake_llm import FakeLLM
@@ -432,3 +433,30 @@ def test_estimate_without_frame_fact_near_it_skips_llm():
 def test_estimate_with_other_scene_has_no_fault():
     r = assess(obs(**NOT_SEEN, scene="other"), FRAMES, TABLE, FakeLLM(out(chart_id=None, me=None, chart_facts=[])), DURATION, SENSOR)
     assert r.involvement == "party" and r.fault is None and r.fault_note == NO_CHART and r.summary.startswith(ESTIMATE_PREFIX)
+
+
+def _times(r) -> set[float]:
+    ts = {e.t for e in r.timeline} | {f.t for f in r.facts}
+    if r.fault:
+        ts |= {s.evidence.t for s in r.fault.steps}
+    ts |= {v.evidence.t for v in r.serious_violations if v.evidence}
+    return ts | {float(m) for t in [*r.favorable, *r.unfavorable] for m in re.findall(r"\(([\d.]+)초\)", t)}
+
+
+def test_all_cited_times_near_frames():
+    # 보여 준 프레임(10~14초)에서 3초 떨어진 17.0초 사실을 모든 칸에서 인용해도 레포트에 나오면 안 된다.
+    o = obs(facts=[Fact(t=12.0, text="접촉"), Fact(t=12.5, text="멈춤"), Fact(t=17.0, text="멀리 있는 사실")])
+    far = 2
+    r, llm = run(o, out(timeline=[0, far], chart_facts=[far], severity_fact=far, applied=[Pick(id="b3", fact=far)],
+                        serious=[SeriousPick(item="신호위반", likelihood="high", party="other", fact=far)],
+                        favorable=[Cite(fact=far, text="유리")], unfavorable=[Cite(fact=far, text="불리")]))
+    assert 17.0 not in _times(r) and "17.0" not in r.model_dump_json() and "멀리" not in str(llm.seen[0][0])
+    assert r.fault is None and r.favorable == [] and r.unfavorable == [] and r.severity is None
+    assert all(v.evidence is None for v in r.serious_violations)
+
+
+def test_estimate_timeline_times_are_frame_or_sensor():
+    o = obs(**NOT_SEEN, facts=[Fact(t=11.0, text="진입"), Fact(t=12.0, text="접촉"), Fact(t=17.0, text="멀리")])
+    r = assess(o, FRAMES, TABLE, FakeLLM(out(timeline=[0, 1, 2])), DURATION, SENSOR)
+    allowed = {f.t for f in o.facts if near_frame(f.t, FRAMES)} | {e.t for e in SENSOR.facts}
+    assert r.timeline and {e.t for e in r.timeline} <= allowed and 17.0 not in _times(r)
