@@ -3,16 +3,16 @@ import * as ImagePicker from 'expo-image-picker';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ScrollView, Switch, Text, View } from 'react-native';
-import { FailureNotice } from '@/components/analysis';
-import { Button, ErrorText } from '@/components/ui';
+import { Text, View } from 'react-native';
+import { ErrorLine, FailureNotice } from '@/components/analysis';
+import { Button, Card, ConsentSwitch, EmptyState, Notice, Screen } from '@/components/ui';
 import { FAILURES } from '@/lib/analysis';
 import { ApiFailure, useApi } from '@/lib/api';
 import { registerPush } from '@/lib/push';
 import { checkTrim, checkVideo, fileSize, isTicketExpired, uploadVideo, videoName, type UploadTicket } from '@/lib/upload';
 import { deleteCached } from '@/lib/cache';
 import { afterInFlight, nextUploadState } from '@/lib/upload-state';
-import { tabBarSpace } from '@/theme';
+import { color, radius, space, type } from '@/theme';
 
 const CONSENT_TEXT = '영상에는 번호판과 얼굴이 담길 수 있고, 분석을 위해 프레임이 OpenAI로 전송되며, 분석을 삭제하면 파일까지 지웁니다.';
 const KEEP_AWAKE_TAG = 'aigo-upload';
@@ -120,6 +120,8 @@ export default function UploadScreen() {
       }
       setPhase('submitting');
       await api(`/api/v1/analyses/${a.ticket.id}/submit`, { method: 'POST' });
+      // 같은 영상을 다시 공유받아도 새 params로 보이게 지운다.
+      router.setParams({ uri: undefined, name: undefined, size: undefined });
       registerPush(api, true); // 첫 분석을 낸 뒤에 알림 권한을 묻는다. 기다리지 않는다.
       deleteCached(file.uri); // 올린 뒤에는 앱 캐시의 복사본이 필요 없다.
       const id = a.ticket.id;
@@ -146,52 +148,79 @@ export default function UploadScreen() {
   const locked = busy || (!!failure && attempt.current?.uri === file?.uri);
   const trimProblem = file ? checkTrim(file.duration, trim) : '';
 
+  const muted = [type.caption, { color: color.gray11 }];
+
   return (
-    <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 24 + tabBarSpace, gap: 12 }}>
-      <Text style={{ fontSize: 20, fontWeight: '700' }}>영상 분석하기</Text>
-      <Button label={file ? '다른 영상 고르기' : '갤러리에서 영상 고르기'} secondary disabled={busy} onPress={pick} />
-      {file ? (
-        <Text>
-          {file.name} · {mb(file.size)}
-        </Text>
-      ) : null}
-      <ErrorText>{fileError}</ErrorText>
+    <Screen scroll tabInset>
+      <Text accessibilityRole="header" style={[type.title, { color: color.gray12, paddingTop: space[2] }]}>영상 분석하기</Text>
       {file ? (
         <>
-          <VideoView player={player} nativeControls style={{ width: '100%', aspectRatio: 16 / 9 }} />
-          <Text>
-            구간 {sec(trim.start)} ~ {sec(trim.end)}
-            {file.duration !== null ? ` · 전체 ${sec(file.duration)}` : ''}
+          <Text style={muted}>
+            {file.name} · {mb(file.size)}
           </Text>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ borderRadius: radius.video, overflow: 'hidden', backgroundColor: color.ink }}>
+            <VideoView player={player} nativeControls style={{ width: '100%', aspectRatio: 16 / 9 }} />
+          </View>
+          <TrimBar duration={file.duration} start={trim.start} end={trim.end} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={[type.label, { color: color.gray12 }]}>
+              구간 {sec(trim.start)} ~ {sec(trim.end)}
+            </Text>
+            {file.duration !== null ? <Text style={muted}>전체 {sec(file.duration)}</Text> : null}
+          </View>
+          <View style={{ flexDirection: 'row', gap: space[2] }}>
             <View style={{ flex: 1 }}>
-              <Button label="시작으로" secondary disabled={locked} onPress={() => setTrim((t) => ({ ...t, start: player.currentTime }))} />
+              <Button label="시작으로" size="md" variant="secondary" disabled={locked} onPress={() => setTrim((t) => ({ ...t, start: player.currentTime }))} />
             </View>
             <View style={{ flex: 1 }}>
-              <Button label="끝으로" secondary disabled={locked} onPress={() => setTrim((t) => ({ ...t, end: player.currentTime }))} />
+              <Button label="끝으로" size="md" variant="secondary" disabled={locked} onPress={() => setTrim((t) => ({ ...t, end: player.currentTime }))} />
             </View>
             <View style={{ flex: 1 }}>
-              <Button label="지우기" secondary disabled={locked} onPress={() => setTrim({ start: null, end: null })} />
+              <Button label="지우기" size="md" variant="secondary" disabled={locked} onPress={() => setTrim({ start: null, end: null })} />
             </View>
           </View>
-          {locked && !busy ? <Text style={{ color: '#666' }}>이미 올리기를 시작해 구간을 바꿀 수 없습니다. 바꾸려면 다른 영상을 고르세요.</Text> : null}
-          <ErrorText>{trimProblem}</ErrorText>
+          {locked && !busy ? <Text style={muted}>이미 올리기를 시작해 구간을 바꿀 수 없습니다. 바꾸려면 다른 영상을 고르세요.</Text> : null}
+          <ErrorLine>{trimProblem}</ErrorLine>
+          <Button label="다른 영상 고르기" variant="secondary" disabled={busy} onPress={pick} />
         </>
+      ) : (
+        <Card>
+          <EmptyState icon="video" title="어떤 영상을 분석할까요?">
+            <Button label="갤러리에서 영상 고르기" icon="image" disabled={busy} onPress={pick} />
+          </EmptyState>
+        </Card>
+      )}
+      <ErrorLine>{fileError}</ErrorLine>
+      <Text style={muted}>mp4, mov, webm, avi · 200MB · 2분 이하</Text>
+
+      <Notice>
+        <Text style={{ fontWeight: '700' }}>올리기 전에 확인하세요{'\n'}</Text>
+        {CONSENT_TEXT}
+      </Notice>
+      <ConsentSwitch value={consent} disabled={busy} onChange={setConsent} label="위 내용을 확인했고 영상 분석에 동의합니다." />
+
+      {phase === 'uploading' ? <Text style={[type.label, { color: color.gray12 }]}>올리는 중 {percent}%</Text> : null}
+      {phase === 'submitting' ? <Text style={[type.label, { color: color.gray12 }]}>분석 대기열에 넣는 중</Text> : null}
+      {failure ? (
+        <Card>
+          <FailureNotice {...failure} />
+        </Card>
       ) : null}
-      <Text style={{ color: '#666' }}>mp4, mov, webm, avi · 200MB · 2분 이하</Text>
 
-      <Text style={{ fontWeight: '700' }}>올리기 전에 확인하세요</Text>
-      <Text>{CONSENT_TEXT}</Text>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <Switch value={consent} disabled={busy} onValueChange={setConsent} />
-        <Text style={{ flex: 1, fontWeight: '600' }}>위 내용을 확인했고 영상 분석에 동의합니다.</Text>
-      </View>
+      <Button label={failure ? '다시 시도' : '올리고 분석 시작'} loading={busy} disabled={!file || !consent || blocked || !!trimProblem} onPress={start} />
+    </Screen>
+  );
+}
 
-      {phase === 'uploading' ? <Text>올리는 중 {percent}%</Text> : null}
-      {phase === 'submitting' ? <Text>분석 대기열에 넣는 중</Text> : null}
-      {failure ? <FailureNotice {...failure} /> : null}
-
-      <Button label={failure ? '다시 시도' : '올리고 분석 시작'} disabled={!file || !consent || busy || blocked || !!trimProblem} onPress={start} />
-    </ScrollView>
+/** 전체 길이 대비 고른 구간. 길이를 모르면 그리지 않는다. */
+function TrimBar({ duration, start, end }: { duration: number | null; start: number | null; end: number | null }) {
+  if (!duration) return null;
+  const pct = (t: number) => `${Math.min(100, Math.max(0, (t / duration) * 100))}%` as const;
+  const from = start ?? 0;
+  const to = end ?? duration;
+  return (
+    <View style={{ height: 12, borderRadius: radius.pill, backgroundColor: color.gray4 }}>
+      <View style={{ position: 'absolute', top: 0, bottom: 0, left: pct(from), width: pct(Math.max(0, to - from)), borderRadius: radius.pill, borderWidth: 2, borderColor: color.brand, backgroundColor: color.brand200 }} />
+    </View>
   );
 }
