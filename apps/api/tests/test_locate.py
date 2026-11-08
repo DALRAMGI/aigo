@@ -1,6 +1,9 @@
 import math
 
-from app.pipeline.locate import drop_hood, find_candidates
+import numpy as np
+import pytest
+
+from app.pipeline.locate import OFF_PATH_RISK, SHORT_TRACK_POINTS, STEP_S, _decel, drop_hood, find_candidates
 from app.pipeline.scan import TrackPoint
 
 W, H = 1920, 1080
@@ -64,8 +67,9 @@ def test_box_expansion_finds_collision():
 
 
 def test_camera_shake_finds_offscreen_collision():
-    # 차가 화면 밖에서 부딪혔다: 상자 신호 없이 화면만 크게 흔들린다.
-    got = find_candidates({}, AREA, _motion([(9.8, 25), (10.0, 35), (10.2, 28)]), None)
+    # 차가 화면 밖에서 부딪혔다: 상자 신호 없이 화면이 크게 흔들리고 충돌음이 난다.
+    # 흔들림만으로는 0.25/0.85 = 0.29라 MIN_SCORE에 못 미친다(decel 추가 뒤 초기 가중치, Task 7에서 조정).
+    got = find_candidates({}, AREA, _motion([(9.8, 25), (10.0, 35), (10.2, 28)]), _audio([(10.0, 0.5)]))
     assert len(got) == 1
     assert abs(got[0].t - 10) <= 0.4
     assert got[0].signals["box"] == 0
@@ -76,8 +80,11 @@ def test_car_leaving_frame_keeps_box_signal():
     boxes = [(1001, 528, 1138, 599), (1017, 534, 1167, 612), (1031, 541, 1208, 633), (1048, 546, 1254, 652),
              (1056, 528, 1315, 661), (1064, 502, 1389, 669), (1068, 504, 1483, 718), (1048, 519, 1601, 805)]
     track = [TrackPoint(round(12.2 + i * 0.2, 6), b, "car", 0.8) for i, b in enumerate(boxes)]
-    got = find_candidates({1: track}, AREA, _motion(), None)
-    assert got and abs(got[0].t - 13.6) <= 0.6
+    debug: dict = {}
+    find_candidates({1: track}, AREA, _motion(), None, debug=debug)
+    box = np.array(debug["box"])
+    # 단독 점수(0.24)는 decel이 들어간 초기 가중치에서 MIN_SCORE 아래다. 상자 신호가 남는지만 본다.
+    assert box.max() > 0.4 and abs(int(np.argmax(box)) * STEP_S - 13.6) <= 0.6
 
 
 def test_audio_spike_adds_score():
@@ -176,8 +183,10 @@ def test_clip_start_is_not_a_candidate():
 def test_steady_road_noise_keeps_impact_sound():
     # 주행 소음은 중앙값이 높아도 음악이 아니다. 그 위의 충격음은 살린다(실제 클립 GA4b).
     noise = [(round(i * 0.1, 6), 0.07 + (0.1 if 99 <= i <= 101 else 0.0005 * (i % 3))) for i in range(200)]
-    got = find_candidates({1: _track(6, 10, _approach(big=420))}, AREA, _motion(), noise)
-    assert got[0].signals["audio"] > 0.5
+    debug: dict = {}
+    find_candidates({1: _track(6, 10, _approach(big=420))}, AREA, _motion(), noise, debug=debug)
+    audio = np.array(debug["audio"])
+    assert audio.max() > 0.5 and abs(int(np.argmax(audio)) * STEP_S - 10.0) <= 0.4
 
 
 def test_silent_audio_track_counts_as_no_audio():
@@ -192,3 +201,50 @@ def test_aspect_sets_the_lane():
     w, h = 1080, 1920
     tracks = {1: _track(4, 8, _approach(cx=w / 2, cy=h / 2))}
     assert find_candidates(tracks, w * h, _motion(), None, aspect=w / h)
+
+
+def _stop_at(cx, stop=5.0, w=800):
+    """아래변이 매 0.2초 일정하게 내려오며 커지다가(접근) stop에서 크기 변화가 멈추는 앞차."""
+    def box(t):
+        k = min(t, stop) - 3.0
+        s = w + 60 * k
+        return (cx - s / 2, 500 - 10 * k, cx + s / 2, 700 + 30 * k)
+    return [TrackPoint(t, box(t), "car", 0.8) for t in _times(3.0, 7.0)]
+
+
+def _n():
+    return round(DUR / STEP_S) + 1
+
+
+def test_decel_peaks_when_lead_car_stops():
+    d = _decel({1: _stop_at(W / 2)}, W, H, _n())
+    assert d.max() > 0
+    assert 4.8 <= int(np.argmax(d)) * STEP_S <= 5.4
+
+
+def test_decel_zero_without_tracks_or_short_track():
+    assert not _decel({}, W, H, _n()).any()
+    short = [p for p in _stop_at(W / 2) if 4.4 <= p.t <= 5.6][:SHORT_TRACK_POINTS - 1]
+    assert not _decel({1: short}, W, H, _n()).any()
+
+
+def test_off_path_car_stop_ignored():
+    # 같은 크기 상자다. 화면 왼쪽 밖으로 걸친 차는 진행 경로와 겹치지 않아 OFF_PATH_RISK 비율만 남는다.
+    on = _decel({1: _stop_at(W / 2, w=900)}, W, H, _n()).max()
+    off = _decel({1: _stop_at(-100, w=900)}, W, H, _n()).max()
+    assert 0 < off < on
+    assert off == pytest.approx(OFF_PATH_RISK * on)
+
+
+def test_candidate_records_signal_peaks():
+    got = find_candidates({}, AREA, _motion([(5.0, 30)]), _audio([(5.1, 0.5)]))
+    assert got and abs(got[0].t - 5.0) <= 0.4
+    assert 4.6 <= got[0].peaks["motion"] <= 5.4
+    assert 4.6 <= got[0].peaks["audio"] <= 5.4
+    assert got[0].peaks["box"] is None and got[0].peaks["decel"] is None
+
+
+def test_debug_series_includes_decel():
+    debug: dict = {}
+    find_candidates({1: _stop_at(W / 2)}, AREA, _motion(), None, debug=debug)
+    assert "decel" in debug
