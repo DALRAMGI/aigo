@@ -544,3 +544,12 @@ test("법규와 판례가 비면 제목도 숨긴다", () => {
   expect(screen.queryByText("관련 법규")).toBeNull();
   expect(screen.queryByText("참고 판례")).toBeNull();
 });
+
+test("http(s)가 아닌 법규·판례 url은 링크로 만들지 않는다", () => {
+  fetchMock.mockResolvedValue(json(200, OVERLAY));
+  const f = PARTY.fault!;
+  const fault = { ...f, laws: [{ ...f.laws[0], url: "javascript:alert(1)" }], cases: [{ ...f.cases[0], url: "HTTPS://law.example/c" }] };
+  render(<ReportView analysis={finished({ ...PARTY, fault })} />);
+  expect(screen.getByText("도로교통법 제19조(안전거리 확보 등)").closest("a")).toBeNull();
+  expect(screen.getByRole("link", { name: "대법원 1986.12.9. 86다카1551" })).toBeTruthy();
+});

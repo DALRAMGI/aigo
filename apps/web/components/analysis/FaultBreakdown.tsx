@@ -38,11 +38,15 @@ function RefList({ title, items }: { title: string; items: { text: string; url: 
     <div>
       <h3 className="hud text-muted">{title}</h3>
       <ul className="mt-2 flex flex-col gap-1">
-        {items.map((i) => (
-          <li key={i.text}>
-            <a href={i.url} target="_blank" rel="noopener noreferrer" className={LINK}>
-              {i.text}
-            </a>
+        {items.map((i, n) => (
+          <li key={`${n}:${i.url}`}>
+            {/^https?:\/\//i.test(i.url) ? (
+              <a href={i.url} target="_blank" rel="noopener noreferrer" className={LINK}>
+                {i.text}
+              </a>
+            ) : (
+              <span className="font-semibold">{i.text}</span>
+            )}
           </li>
         ))}
       </ul>

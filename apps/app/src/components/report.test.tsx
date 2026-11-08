@@ -108,3 +108,12 @@ test('법규와 판례가 없거나 옛 레포트에 필드가 없으면 제목�
   expect(screen.queryByText('관련 법규')).toBeNull();
   expect(screen.queryByText('참고 판례')).toBeNull();
 });
+
+test('http(s)가 아닌 url은 누를 수 없고 열지 않는다', async () => {
+  (WebBrowser.openBrowserAsync as jest.Mock).mockClear();
+  const law = { name: '도로교통법', article: '제19조', title: '안전거리 확보 등', url: 'javascript:alert(1)' };
+  await render(<ReportView analysis={withLaws([law])} onReload={() => {}} tab="basis" onTab={() => {}} />);
+  expect(screen.getByText('도로교통법 제19조(안전거리 확보 등)')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: '도로교통법 제19조(안전거리 확보 등)' })).toBeNull();
+  expect(WebBrowser.openBrowserAsync).not.toHaveBeenCalled();
+});

@@ -109,9 +109,13 @@ function RefCard({ title, items }: { title: string; items: { text: string; url: 
   if (items.length === 0) return null;
   return (
     <Card title={title}>
-      {items.map((i) => (
-        <ListRow key={i.text} title={i.text} trailing={<Icon name="chevron" size={16} color={color.gray11} />} onPress={() => void WebBrowser.openBrowserAsync(i.url).catch(() => {})} />
-      ))}
+      {items.map((i, n) =>
+        /^https?:\/\//i.test(i.url) ? (
+          <ListRow key={`${n}:${i.url}`} title={i.text} trailing={<Icon name="chevron" size={16} color={color.gray11} />} onPress={() => void WebBrowser.openBrowserAsync(i.url).catch(() => {})} />
+        ) : (
+          <ListRow key={`${n}:${i.url}`} title={i.text} />
+        ),
+      )}
     </Card>
   );
 }
