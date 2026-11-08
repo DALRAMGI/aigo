@@ -330,13 +330,15 @@ def test_run_clip_tags_sensor_evidence(monkeypatch):
     from types import SimpleNamespace as NS
 
     sensor = {"t": 3.0, "text": "화면이 크게 흔들림"}
-    tl = [NS(t=2.0, text="접촉"), NS(**sensor), NS(t=3.0, text="화면이 크게 흔들림 같은 프레임 문장")]
+    decel = {"t": 2.8, "text": "앞차와의 거리가 급히 좁혀진 뒤 멈춤"}
+    tl = [NS(t=2.0, text="접촉"), NS(**decel), NS(t=2.9, text="앞차가 급정지함"), NS(**sensor),
+          NS(t=3.0, text="화면이 크게 흔들림 같은 프레임 문장")]
     rep = NS(timeline=tl, fault=None, involvement="party", collision_t=3.0, confidence="low", severity=None,
              summary="", reason=None, serious_violations=[])
-    trace = {"estimate": {"t": 3.0, "facts": [sensor]}, "candidates": [], "observation": {"scene": "x"},
+    trace = {"estimate": {"t": 2.8, "facts": [decel, sensor]}, "candidates": [], "observation": {"scene": "x"},
              "extra_focus": False, "stage_seconds": {}}
     monkeypatch.setattr("app.llm.LLM", lambda: NS(calls=[]))
     monkeypatch.setattr("app.fault.FaultTable.load", classmethod(lambda cls: None))
     monkeypatch.setattr("app.pipeline.run.run_pipeline", lambda ctx: NS(report=rep, trace=trace))
     got = ev.run_clip(entry(), ROOT / "tests" / "test_evaluate.py")["evidence"]
-    assert [g["source"] for g in got] == ["frame", "sensor", "frame"]
+    assert [g["source"] for g in got] == ["frame", "sensor", "frame", "sensor", "frame"]

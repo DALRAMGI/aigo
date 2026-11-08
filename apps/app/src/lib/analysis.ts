@@ -69,6 +69,10 @@ export function formatTime(sec: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
+// 판례 url이 법제처 판례가 아니면 도표 출처 페이지다. 판례는 글로만 두고 목록 아래 출처를 한 번만 보인다.
+export const isCaseUrl = (url: string) => /^https:\/\/(www\.)?law\.go\.kr\/판례\//i.test(url);
+export const caseSource = (cases: { url: string }[]) => cases.find((c) => !isCaseUrl(c.url))?.url;
+
 export const faultRange = ({ my_min, my_max }: FaultAssessment) => (my_min === my_max ? `${my_min}%` : `${my_min}~${my_max}%`);
 
 export const seoulDate = (iso: string) => new Date(iso).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });

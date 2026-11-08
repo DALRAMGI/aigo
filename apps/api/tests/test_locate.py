@@ -3,7 +3,7 @@ import math
 import numpy as np
 import pytest
 
-from app.pipeline.locate import OFF_PATH_RISK, SHORT_TRACK_POINTS, STEP_S, _decel, drop_hood, find_candidates
+from app.pipeline.locate import OFF_PATH_RISK, SHORT_TRACK_POINTS, STEP_S, _decel, drop_hood, find_candidates, pick_candidates
 from app.pipeline.scan import TrackPoint
 
 W, H = 1920, 1080
@@ -68,14 +68,12 @@ def test_box_expansion_finds_collision():
 
 def test_camera_shake_finds_offscreen_collision():
     # 차가 화면 밖에서 부딪혔다: 상자 신호 없이 화면이 크게 흔들리고 충돌음이 난다.
-    # 흔들림만으로는 0.25/0.85 = 0.29라 MIN_SCORE에 못 미친다(decel 추가 뒤 초기 가중치, Task 7에서 조정).
     got = find_candidates({}, AREA, _motion([(9.8, 25), (10.0, 35), (10.2, 28)]), _audio([(10.0, 0.5)]))
     assert len(got) == 1
     assert abs(got[0].t - 10) <= 0.4
     assert got[0].signals["box"] == 0
 
 
-@pytest.mark.xfail(strict=True, reason="Task 7 가중치 조정에서 회복")
 def test_camera_shake_alone_finds_offscreen_collision():
     got = find_candidates({}, AREA, _motion([(9.8, 25), (10.0, 35), (10.2, 28)]), None)
     assert len(got) == 1 and abs(got[0].t - 10) <= 0.4
@@ -88,7 +86,10 @@ def _leaving_track():
     return [TrackPoint(round(12.2 + i * 0.2, 6), b, "car", 0.8) for i, b in enumerate(boxes)]
 
 
-@pytest.mark.xfail(strict=True, reason="Task 7 가중치 조정에서 회복")
+# 상자만(0.49)이면 점수 0.27로 MIN_SCORE 0.3에 못 미친다. 살리려면 MIN_SCORE를 0.25로 내려야 하는데,
+# 그러면 사고 후보(1초 이내) 재현율이 17/18에서 16/18로 준다(Task 7a 조정 보고서, 초안 정답 기준).
+# 실제 AA8U는 충돌음이 더해져 후보로 잡힌다.
+@pytest.mark.xfail(strict=True, reason="상자 단독 후보는 Task 7 가중치에서 포기(사고 후보 17/18 우선)")
 def test_car_leaving_frame_finds_collision():
     got = find_candidates({1: _leaving_track()}, AREA, _motion(), None)
     assert got and abs(got[0].t - 13.6) <= 0.6
@@ -98,7 +99,7 @@ def test_car_leaving_frame_keeps_box_signal():
     debug: dict = {}
     find_candidates({1: _leaving_track()}, AREA, _motion(), None, debug=debug)
     box = np.array(debug["box"])
-    # 단독 점수(0.24)는 decel이 들어간 초기 가중치에서 MIN_SCORE 아래다. 상자 신호가 남는지만 본다.
+    # 단독 점수(0.27)는 MIN_SCORE 아래다. 상자 신호가 남는지만 본다.
     assert box.max() > 0.4 and abs(int(np.argmax(box)) * STEP_S - 13.6) <= 0.6
 
 
@@ -199,7 +200,6 @@ def _road_noise():
     return [(round(i * 0.1, 6), 0.07 + (0.1 if 99 <= i <= 101 else 0.0005 * (i % 3))) for i in range(200)]
 
 
-@pytest.mark.xfail(strict=True, reason="Task 7 가중치 조정에서 회복")
 def test_steady_road_noise_impact_finds_collision():
     got = find_candidates({1: _track(6, 10, _approach(big=420))}, AREA, _motion(), _road_noise())
     assert got[0].signals["audio"] > 0.5
@@ -284,3 +284,10 @@ def test_debug_series_includes_decel():
 def test_decel_same_time_points_do_not_divide_by_zero():
     track = _stop_at(W / 2)
     assert _decel({1: track[:5] + [track[4]] + track[5:]}, W, H, _n()).max() > 0
+
+
+def test_raw_debug_reproduces_candidates():
+    # 임계값 조정은 저장한 원래 배열로 후보를 다시 고른다. 영상을 다시 돌린 것과 같아야 한다.
+    debug: dict = {}
+    got = find_candidates({1: _track(4, 8, _approach())}, AREA, _motion([(10.0, 35)]), _audio([(10.0, 0.5)]), debug=debug)
+    assert pick_candidates(debug["raw"]) == got

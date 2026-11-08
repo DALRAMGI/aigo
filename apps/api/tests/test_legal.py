@@ -3,7 +3,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
-from collect_legal import parse  # noqa: E402
+from collect_legal import court_name, normalize, parse  # noqa: E402
 
 from app.report import FaultAssessment  # noqa: E402
 
@@ -20,6 +20,16 @@ def test_parse_laws_and_cases():
     assert cases[0].court == "대법원" and cases[0].number == "86다카1551" and cases[0].date == "1986.12.9."
     assert cases[0].url == "https://www.law.go.kr/판례/(86다카1551)"
     assert cases[1].court == "서울중앙지방법원" and cases[1].url == "https://accident.knia.or.kr/x"
+
+
+def test_court_branch_spacing():
+    assert court_name("서울지방법원북부지원") == "서울지방법원 북부지원"
+    assert court_name("서울지방법원 북부지원") == "서울지방법원 북부지원"
+    assert court_name("서울중앙지방법원") == "서울중앙지방법원" and court_name("대법원") == "대법원"
+    _, cases = parse("<div>판례·조정사례</div><div>서울지방법원북부지원 1999.1.2. 선고 98가단1 판결</div>", "s")
+    assert cases[0].court == "서울지방법원 북부지원"
+    charts = [{"cases": [{"court": "대전지방법원홍성지원"}, {"court": "대법원"}]}, {"id": "x"}]
+    assert normalize(charts)[0]["cases"] == [{"court": "대전지방법원 홍성지원"}, {"court": "대법원"}]
 
 
 def test_parse_article_with_branch_number():

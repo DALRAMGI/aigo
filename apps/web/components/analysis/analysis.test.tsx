@@ -548,8 +548,24 @@ test("법규와 판례가 비면 제목도 숨긴다", () => {
 test("http(s)가 아닌 법규·판례 url은 링크로 만들지 않는다", () => {
   fetchMock.mockResolvedValue(json(200, OVERLAY));
   const f = PARTY.fault!;
-  const fault = { ...f, laws: [{ ...f.laws[0], url: "javascript:alert(1)" }], cases: [{ ...f.cases[0], url: "HTTPS://law.example/c" }] };
+  const fault = { ...f, laws: [{ ...f.laws[0], url: "javascript:alert(1)" }], cases: [{ ...f.cases[0], url: "HTTPS://www.law.go.kr/판례/(86다카1551)" }] };
   render(<ReportView analysis={finished({ ...PARTY, fault })} />);
   expect(screen.getByText("도로교통법 제19조(안전거리 확보 등)").closest("a")).toBeNull();
   expect(screen.getByRole("link", { name: "대법원 1986.12.9. 86다카1551" })).toBeTruthy();
+});
+
+test("판례 url이 법제처 판례가 아니면(도표 출처) 글로 두고 목록 아래 출처 링크 하나만 둔다", () => {
+  fetchMock.mockResolvedValue(json(200, OVERLAY));
+  const f = PARTY.fault!;
+  const src = "https://accident.knia.or.kr/myaccident-content?chartNo=1";
+  const lower = [
+    { court: "서울중앙지방법원", date: "2015.1.1.", number: "2014가단1", url: src },
+    { court: "수원지방법원", date: "2016.1.1.", number: "2015나2", url: src },
+  ];
+  render(<ReportView analysis={finished({ ...PARTY, fault: { ...f, cases: [f.cases[0], ...lower] } })} />);
+  expect(screen.getByRole("link", { name: "대법원 1986.12.9. 86다카1551" })).toBeTruthy();
+  expect(screen.getByText("서울중앙지방법원 2015.1.1. 2014가단1").closest("a")).toBeNull();
+  expect(screen.getByText("수원지방법원 2016.1.1. 2015나2").closest("a")).toBeNull();
+  const sources = screen.getAllByRole("link", { name: "출처: 과실비율정보포털" }).filter((a) => a.getAttribute("href") === src);
+  expect(sources.length).toBe(1);
 });

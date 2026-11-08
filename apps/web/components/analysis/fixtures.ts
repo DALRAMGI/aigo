@@ -34,7 +34,7 @@ export const PARTY: Report = {
     ],
     unknown: ["내 제한속도 초과 여부"],
     laws: [{ name: "도로교통법", article: "제19조", title: "안전거리 확보 등", url: "https://www.law.go.kr/법령/도로교통법/제19조" }],
-    cases: [{ court: "대법원", date: "1986.12.9.", number: "86다카1551", url: "https://www.law.go.kr/판례/86다카1551" }],
+    cases: [{ court: "대법원", date: "1986.12.9.", number: "86다카1551", url: "https://www.law.go.kr/판례/(86다카1551)" }],
   },
   fault_note: null,
   serious_violations: [

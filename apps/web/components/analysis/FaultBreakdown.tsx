@@ -32,7 +32,10 @@ const ROW = "grid grid-cols-[minmax(0,1fr)_3.5rem_3.5rem] items-baseline gap-3 p
 
 const LINK = "font-semibold text-accent-ink underline underline-offset-4";
 
-function RefList({ title, items }: { title: string; items: { text: string; url: string }[] }) {
+// 판례 url이 법제처 판례가 아니면 도표 출처 페이지다. 판례 항목은 글로만 두고 출처 링크를 목록 아래 하나만 둔다.
+const CASE_URL = /^https:\/\/(www\.)?law\.go\.kr\/판례\//i;
+
+function RefList({ title, items, source }: { title: string; items: { text: string; url: string }[]; source?: string }) {
   if (items.length === 0) return null;
   return (
     <div>
@@ -50,6 +53,11 @@ function RefList({ title, items }: { title: string; items: { text: string; url: 
           </li>
         ))}
       </ul>
+      {source && /^https?:\/\//i.test(source) && (
+        <a href={source} target="_blank" rel="noopener noreferrer" className={`mt-2 inline-block text-sm ${LINK}`}>
+          출처: 과실비율정보포털
+        </a>
+      )}
     </div>
   );
 }
@@ -96,7 +104,11 @@ export function FaultBreakdown({ fault, onSeek }: { fault: FaultAssessment; onSe
           </a>
         </div>
         <RefList title="관련 법규" items={(fault.laws ?? []).map((l) => ({ text: `${l.name} ${l.article}(${l.title})`, url: l.url }))} />
-        <RefList title="참고 판례" items={(fault.cases ?? []).map((c) => ({ text: `${c.court} ${c.date} ${c.number}`, url: c.url }))} />
+        <RefList
+          title="참고 판례"
+          items={(fault.cases ?? []).map((c) => ({ text: `${c.court} ${c.date} ${c.number}`, url: CASE_URL.test(c.url) ? c.url : "" }))}
+          source={(fault.cases ?? []).find((c) => !CASE_URL.test(c.url))?.url}
+        />
         {fault.unknown.length > 0 && (
           <div>
             <h3 className="hud text-muted">영상으로 판단하지 못한 요소</h3>

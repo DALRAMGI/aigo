@@ -5,7 +5,9 @@ import numpy as np
 from app.pipeline.scan import TrackPoint
 
 # 평가로 조정하는 값. 바꾸면 사고영상 평가를 다시 돌린다.
-WEIGHTS = {"box": 0.4, "motion": 0.25, "audio": 0.15, "decel": 0.2}  # 초기값, Task 7에서 조정
+# 초안 정답 기준, tuned 분할(scripts/tune_estimate.py, eval/results/20261108T101312Z-tuning.md). 0.1 간격 격자에서 고른 값이다.
+# decel을 0.2로 두면 흔들림만인 후보가 MIN_SCORE에 못 미쳐 사고 후보(1초 이내)가 18개 중 14개로 줄었다. 0.1이면 17개다.
+WEIGHTS = {"box": 0.4, "motion": 0.3, "audio": 0.2, "decel": 0.1}
 MIN_SCORE = 0.3  # 0.5면 사고영상 29개 중 6개가 후보 없음이 된다. 오탐은 관찰 단계가 프레임을 보고 거른다.
 MERGE_S = 2.0
 STEP_S = 0.2  # 스캔 간격(초당 5장)
@@ -179,6 +181,14 @@ def find_candidates(tracks, frame_area, motion, audio, max_candidates=3, aspect=
         peaks["audio"] = sound
     for v in peaks.values():
         v[:round(SKIP_START_S / STEP_S) + 1] = 0
+    if debug is not None:
+        debug["raw"] = {k: [round(float(x), 4) for x in v] for k, v in peaks.items()}  # 임계값 조정에서 pick_candidates로 다시 고른다.
+    return pick_candidates(peaks, max_candidates, debug)
+
+
+def pick_candidates(peaks: dict[str, np.ndarray], max_candidates=3, debug: dict | None = None) -> list[Candidate]:
+    """신호별 원래 배열(시작 구간을 0으로 만든 뒤)에서 WEIGHTS와 MIN_SCORE로 후보를 고른다."""
+    peaks = {k: np.asarray(v, dtype=float) for k, v in peaks.items()}
     series = {k: _spread(v) for k, v in peaks.items()}
 
     if debug is not None:

@@ -180,5 +180,187 @@
   "ok": false,
   "note": "흰 차가 아니라 자기 차 가장자리일 수 있음",
   "checked_by": ""
+ },
+ {
+  "file": "AAAL1776922726_490_com.mp4",
+  "t": 7.6,
+  "ok": true,
+  "note": null,
+  "checked_by": "claude(초안)"
+ },
+ {
+  "file": "AAAL1776922726_490_com.mp4",
+  "t": 10.0,
+  "ok": true,
+  "note": null,
+  "checked_by": "claude(초안)"
+ },
+ {
+  "file": "ARwU1776562312_8caaa6_396_com.mp4",
+  "t": 12.07,
+  "ok": true,
+  "note": null,
+  "checked_by": "claude(초안)"
+ },
+ {
+  "file": "ARwU1776562312_8caaa6_396_com.mp4",
+  "t": 12.93,
+  "ok": true,
+  "note": null,
+  "checked_by": "claude(초안)"
+ },
+ {
+  "file": "ARwU1776562312_8caaa6_396_com.mp4",
+  "t": 15.53,
+  "ok": true,
+  "note": null,
+  "checked_by": "claude(초안)"
+ },
+ {
+  "file": "ARwU1776562312_8caaa6_396_com.mp4",
+  "t": 17.53,
+  "ok": true,
+  "note": null,
+  "checked_by": "claude(초안)"
+ },
+ {
+  "file": "ChEd1775124884_965_com.mp4",
+  "t": 10.27,
+  "ok": true,
+  "note": null,
+  "checked_by": "claude(초안)"
+ },
+ {
+  "file": "ChEd1775124884_965_com.mp4",
+  "t": 12.8,
+  "ok": true,
+  "note": null,
+  "checked_by": "claude(초안)"
+ },
+ {
+  "file": "ChYn1776595376_6b5d31_704_com.mp4",
+  "t": 5.87,
+  "ok": true,
+  "note": null,
+  "checked_by": "claude(초안)"
+ },
+ {
+  "file": "ChYn1776595376_6b5d31_704_com.mp4",
+  "t": 6.8,
+  "ok": true,
+  "note": null,
+  "checked_by": "claude(초안)"
+ },
+ {
+  "file": "ChYn1776595376_6b5d31_704_com.mp4",
+  "t": 7.6,
+  "ok": true,
+  "note": null,
+  "checked_by": "claude(초안)"
+ },
+ {
+  "file": "ChYn1776595376_6b5d31_704_com.mp4",
+  "t": 8.0,
+  "ok": true,
+  "note": null,
+  "checked_by": "claude(초안)"
+ },
+ {
+  "file": "ChYn1776595376_6b5d31_704_com.mp4",
+  "t": 9.47,
+  "ok": true,
+  "note": null,
+  "checked_by": "claude(초안)"
+ },
+ {
+  "file": "ChYn1776595376_6b5d31_704_com.mp4",
+  "t": 9.6,
+  "ok": true,
+  "note": null,
+  "checked_by": "claude(초안)"
+ },
+ {
+  "file": "DwEN1776245313_409_com.mp4",
+  "t": 10.0,
+  "ok": true,
+  "note": null,
+  "checked_by": "claude(초안)"
+ },
+ {
+  "file": "DwEN1776245313_409_com.mp4",
+  "t": 11.4,
+  "ok": true,
+  "note": null,
+  "checked_by": "claude(초안)"
+ },
+ {
+  "file": "EQwC1774571573_752_com.mp4",
+  "t": 4.93,
+  "ok": true,
+  "note": null,
+  "checked_by": "claude(초안)"
+ },
+ {
+  "file": "EQwC1774571573_752_com.mp4",
+  "t": 7.6,
+  "ok": true,
+  "note": null,
+  "checked_by": "claude(초안)"
+ },
+ {
+  "file": "EQwC1774571573_752_com.mp4",
+  "t": 8.93,
+  "ok": true,
+  "note": null,
+  "checked_by": "claude(초안)"
+ },
+ {
+  "file": "EQwC1774571573_752_com.mp4",
+  "t": 9.73,
+  "ok": true,
+  "note": null,
+  "checked_by": "claude(초안)"
+ },
+ {
+  "file": "EQwC1774571573_752_com.mp4",
+  "t": 12.0,
+  "ok": true,
+  "note": null,
+  "checked_by": "claude(초안)"
+ },
+ {
+  "file": "HgsR1774843004_952_com.mp4",
+  "t": 6.0,
+  "ok": true,
+  "note": null,
+  "checked_by": "claude(초안)"
+ },
+ {
+  "file": "HgsR1774843004_952_com.mp4",
+  "t": 6.87,
+  "ok": true,
+  "note": null,
+  "checked_by": "claude(초안)"
+ },
+ {
+  "file": "HgsR1774843004_952_com.mp4",
+  "t": 8.0,
+  "ok": true,
+  "note": null,
+  "checked_by": "claude(초안)"
+ },
+ {
+  "file": "HgsR1774843004_952_com.mp4",
+  "t": 8.13,
+  "ok": true,
+  "note": null,
+  "checked_by": "claude(초안)"
+ },
+ {
+  "file": "HgsR1774843004_952_com.mp4",
+  "t": 10.0,
+  "ok": true,
+  "note": null,
+  "checked_by": "claude(초안)"
  }
 ]

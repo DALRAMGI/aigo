@@ -35,7 +35,8 @@ def run_candidates(video: Path) -> dict:
         debug: dict = {}
         cands = find_candidates(scanned.tracks, info.width * info.height, scanned.motion, audio_envelope(work / "analysis.mp4"),
                                 aspect=info.width / info.height, debug=debug)
-    return {"candidates": [asdict(c) for c in cands], "series": debug, "duration": round(info.duration, 1)}
+    return {"candidates": [asdict(c) for c in cands], "series": debug, "duration": round(info.duration, 1),
+            "tracks": len(scanned.tracks)}
 
 
 def judge(e: dict, cands: list[dict]) -> tuple[str, float | None, float | None, str]:
