@@ -6,12 +6,12 @@ import pytest
 
 from app.errors import PipelineError
 from app.fault import FaultTable, calculate
-from app.pipeline.assess import AssessOut, Cite, Pick, SeriousPick, assess, has_fault_number
+from app.pipeline.assess import AssessOut, Cite, Pick, SeriousPick, _fault, assess, has_fault_number
 from app.pipeline.focus import Keyframe
 from app.pipeline.locate import Candidate
 from app.pipeline.observe import Fact, Observation, observe, outside_windows, recheck_time
 from app.pipeline.scan import TrackPoint
-from app.report import SeriousViolation
+from app.report import CaseRef, LawRef, SeriousViolation
 from tests.fixtures.fake_llm import FakeLLM
 
 TABLE = FaultTable.load()
@@ -345,3 +345,11 @@ def test_clock_times_are_not_fault_numbers(text):
 @pytest.mark.parametrize("text", ["과실 70:30입니다", "7:3으로 보입니다", "3 : 7", "100:0", "내 과실 20%", "20 : 80", "45:55"])
 def test_fault_numbers_are_still_rejected(text):
     assert has_fault_number(text)
+
+
+def test_fault_carries_chart_laws_and_cases():
+    chart = TABLE.get("차43-2").model_copy(update={
+        "laws": [LawRef(name="도로교통법", article="제19조", title="안전거리 확보 등", url="u1")],
+        "cases": [CaseRef(court="대법원", date="1986.12.9.", number="86다카1551", url="u2")]})
+    f = _fault(chart, out(), lambda _: None)
+    assert f.laws == chart.laws and f.cases == chart.cases

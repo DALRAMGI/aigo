@@ -5,6 +5,8 @@ from typing import Literal, get_args
 
 from pydantic import BaseModel
 
+from app.report import CaseRef, LawRef
+
 SceneType = Literal[
     "signal_intersection", "unsignaled_intersection", "lane_change", "rear_end",
     "opposite_direction", "parking", "pedestrian", "other",
@@ -29,6 +31,8 @@ class Chart(BaseModel):
     modifiers: list[Modifier]
     source: str
     scene: SceneType
+    laws: list[LawRef] = []
+    cases: list[CaseRef] = []
 
 
 class Step(BaseModel):

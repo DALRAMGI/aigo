@@ -1,6 +1,7 @@
 import { useEvent } from 'expo';
 import { useVideoPlayer, VideoView, type VideoPlayer } from 'expo-video';
 import { useEffect, useRef, type MutableRefObject, type ReactNode } from 'react';
+import * as WebBrowser from 'expo-web-browser';
 import { Text, View } from 'react-native';
 import {
   DISCLAIMER,
@@ -17,7 +18,7 @@ import {
   type Report,
 } from '@/lib/analysis';
 import { faultSegments, stageSegments } from '@/lib/ui-logic';
-import { Card, ListRow, Notice, SegmentGauge, SegmentedControl, StatTile, StepList, TimeChip } from '@/components/ui';
+import { Card, Icon, ListRow, Notice, SegmentGauge, SegmentedControl, StatTile, StepList, TimeChip } from '@/components/ui';
 import { color, radius, space, type } from '@/theme';
 
 // 웹 ReportView와 같은 항목·문구.
@@ -100,6 +101,21 @@ function FaultBreakdown({ fault, onSeek }: { fault: FaultAssessment; onSeek: See
         <Text style={muted}>이 도표에서 내 차는 {fault.me}입니다.</Text>
         <Text style={muted}>출처: 과실비율정보포털 ({fault.source_url})</Text>
       </View>
+    </Card>
+  );
+}
+
+function RefCard({ title, items }: { title: string; items: { text: string; url: string }[] }) {
+  if (items.length === 0) return null;
+  return (
+    <Card title={title}>
+      {items.map((i, n) =>
+        /^https?:\/\//i.test(i.url) ? (
+          <ListRow key={`${n}:${i.url}`} title={i.text} trailing={<Icon name="chevron" size={16} color={color.gray11} />} onPress={() => void WebBrowser.openBrowserAsync(i.url).catch(() => {})} />
+        ) : (
+          <ListRow key={`${n}:${i.url}`} title={i.text} />
+        ),
+      )}
     </Card>
   );
 }
@@ -326,6 +342,9 @@ export function ReportView({ analysis, onReload, tab, onTab }: { analysis: Analy
               <Text style={strong}>{noFault}</Text>
             </Card>
           )}
+          {/* 옛 레포트에는 laws/cases가 없을 수 있다 */}
+          <RefCard title="관련 법규" items={(fault?.laws ?? []).map((l) => ({ text: `${l.name} ${l.article}(${l.title})`, url: l.url }))} />
+          <RefCard title="참고 판례" items={(fault?.cases ?? []).map((c) => ({ text: `${c.court} ${c.date} ${c.number}`, url: c.url }))} />
           {fault && fault.unknown.length > 0 && (
             <Card title="영상으로 판단하지 못한 요소">
               <Text style={muted}>이 요소 때문에 예상 범위가 넓어질 수 있습니다.</Text>

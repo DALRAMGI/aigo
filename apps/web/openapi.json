@@ -759,6 +759,34 @@
         ],
         "title": "AnalysisOut"
       },
+      "CaseRef": {
+        "properties": {
+          "court": {
+            "type": "string",
+            "title": "Court"
+          },
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "number": {
+            "type": "string",
+            "title": "Number"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "court",
+          "date",
+          "number",
+          "url"
+        ],
+        "title": "CaseRef"
+      },
       "ConfirmIn": {
         "properties": {
           "payment_key": {
@@ -862,6 +890,22 @@
             },
             "type": "array",
             "title": "Unknown"
+          },
+          "laws": {
+            "items": {
+              "$ref": "#/components/schemas/LawRef"
+            },
+            "type": "array",
+            "title": "Laws",
+            "default": []
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/CaseRef"
+            },
+            "type": "array",
+            "title": "Cases",
+            "default": []
           }
         },
         "type": "object",
@@ -912,6 +956,34 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "LawRef": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "article": {
+            "type": "string",
+            "title": "Article"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "article",
+          "title",
+          "url"
+        ],
+        "title": "LawRef"
       },
       "OrderIn": {
         "properties": {

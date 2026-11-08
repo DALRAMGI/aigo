@@ -30,6 +30,30 @@ export function FaultGauge({ fault }: { fault: FaultAssessment }) {
 
 const ROW = "grid grid-cols-[minmax(0,1fr)_3.5rem_3.5rem] items-baseline gap-3 py-3";
 
+const LINK = "font-semibold text-accent-ink underline underline-offset-4";
+
+function RefList({ title, items }: { title: string; items: { text: string; url: string }[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      <h3 className="hud text-muted">{title}</h3>
+      <ul className="mt-2 flex flex-col gap-1">
+        {items.map((i, n) => (
+          <li key={`${n}:${i.url}`}>
+            {/^https?:\/\//i.test(i.url) ? (
+              <a href={i.url} target="_blank" rel="noopener noreferrer" className={LINK}>
+                {i.text}
+              </a>
+            ) : (
+              <span className="font-semibold">{i.text}</span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function FaultBreakdown({ fault, onSeek }: { fault: FaultAssessment; onSeek?: Seek }) {
   return (
     <div className="cells lg:grid-cols-[minmax(0,1fr)_24rem]">
@@ -71,6 +95,8 @@ export function FaultBreakdown({ fault, onSeek }: { fault: FaultAssessment; onSe
             출처: 과실비율정보포털
           </a>
         </div>
+        <RefList title="관련 법규" items={(fault.laws ?? []).map((l) => ({ text: `${l.name} ${l.article}(${l.title})`, url: l.url }))} />
+        <RefList title="참고 판례" items={(fault.cases ?? []).map((c) => ({ text: `${c.court} ${c.date} ${c.number}`, url: c.url }))} />
         {fault.unknown.length > 0 && (
           <div>
             <h3 className="hud text-muted">영상으로 판단하지 못한 요소</h3>
