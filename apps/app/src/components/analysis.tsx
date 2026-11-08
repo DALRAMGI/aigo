@@ -9,6 +9,8 @@ import {
   LEVEL,
   LIKELIHOOD,
   STAGES,
+  caseSource,
+  isCaseUrl,
   faultRange,
   signed,
   formatTime,
@@ -105,7 +107,7 @@ function FaultBreakdown({ fault, onSeek }: { fault: FaultAssessment; onSeek: See
   );
 }
 
-function RefCard({ title, items }: { title: string; items: { text: string; url: string }[] }) {
+function RefCard({ title, items, source }: { title: string; items: { text: string; url: string }[]; source?: string }) {
   if (items.length === 0) return null;
   return (
     <Card title={title}>
@@ -115,6 +117,9 @@ function RefCard({ title, items }: { title: string; items: { text: string; url: 
         ) : (
           <ListRow key={`${n}:${i.url}`} title={i.text} />
         ),
+      )}
+      {source && /^https?:\/\//i.test(source) && (
+        <ListRow title="출처: 과실비율정보포털" trailing={<Icon name="chevron" size={16} color={color.gray11} />} onPress={() => void WebBrowser.openBrowserAsync(source).catch(() => {})} />
       )}
     </Card>
   );
@@ -344,7 +349,11 @@ export function ReportView({ analysis, onReload, tab, onTab }: { analysis: Analy
           )}
           {/* 옛 레포트에는 laws/cases가 없을 수 있다 */}
           <RefCard title="관련 법규" items={(fault?.laws ?? []).map((l) => ({ text: `${l.name} ${l.article}(${l.title})`, url: l.url }))} />
-          <RefCard title="참고 판례" items={(fault?.cases ?? []).map((c) => ({ text: `${c.court} ${c.date} ${c.number}`, url: c.url }))} />
+          <RefCard
+            title="참고 판례"
+            items={(fault?.cases ?? []).map((c) => ({ text: `${c.court} ${c.date} ${c.number}`, url: isCaseUrl(c.url) ? c.url : '' }))}
+            source={caseSource(fault?.cases ?? [])}
+          />
           {fault && fault.unknown.length > 0 && (
             <Card title="영상으로 판단하지 못한 요소">
               <Text style={muted}>이 요소 때문에 예상 범위가 넓어질 수 있습니다.</Text>

@@ -53,13 +53,17 @@ test('사고 장면을 못 찾은 레포트에도 놓쳤을 수 있다는 안내
 });
 
 test('prints_laws_and_cases_escaped_without_links', () => {
-  const fault = { ...base.fault!, laws: [{ name: '도로교통법', article: '제19조', title: evil, url: 'https://x.example/?a=1&b=2' }], cases: [{ court: '대법원', date: '1986.12.9.', number: '86다카1551', url: 'https://x.example' }] };
+  const fault = { ...base.fault!, laws: [{ name: '도로교통법', article: '제19조', title: evil, url: 'https://x.example/?a=1&b=2' }], cases: [{ court: '대법원', date: '1986.12.9.', number: '86다카1551', url: 'https://www.law.go.kr/판례/(86다카1551)' }] };
   const html = reportHtml({ ...base, fault }, '2026-11-06T00:00:00Z');
   expect(html).toContain('관련 법규');
   expect(html).toContain('도로교통법 제19조(&lt;script&gt;');
   expect(html).toContain('참고 판례');
   expect(html).toContain('대법원 1986.12.9. 86다카1551');
   expect(html).not.toContain('<a ');
+  expect(html).not.toContain('출처: 과실비율정보포털 https://www.law.go.kr');
+  const src = 'https://accident.knia.or.kr/c?a=1&b=2';
+  const lower = reportHtml({ ...base, fault: { ...fault, cases: [{ ...fault.cases[0], url: src }, { ...fault.cases[0], number: '2', url: src }] } }, '2026-11-06T00:00:00Z');
+  expect(lower.split('출처: 과실비율정보포털 https://accident.knia.or.kr/c?a=1&amp;b=2').length).toBe(2);
   const none = reportHtml({ ...base, fault: { ...fault, laws: [], cases: [] } }, '2026-11-06T00:00:00Z');
   expect(none).not.toContain('관련 법규');
   expect(none).not.toContain('참고 판례');

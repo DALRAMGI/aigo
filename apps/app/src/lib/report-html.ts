@@ -1,4 +1,4 @@
-import { DISCLAIMER, LEVEL, LIKELIHOOD, faultRange, formatTime, seoulDate, signed, type Evidence, type Report } from './analysis';
+import { DISCLAIMER, LEVEL, LIKELIHOOD, caseSource, faultRange, formatTime, seoulDate, signed, type Evidence, type Report } from './analysis';
 
 // LLM이 만든 문자열도 모두 거친다. 따옴표까지 바꿔 속성에 들어가도 안전하다.
 const esc = (v: string | number) =>
@@ -36,9 +36,11 @@ export function reportHtml(report: Report, createdAt: string): string {
         `<tr><td><b>내 과실 예상</b></td><td><b>${esc(faultRange(fault))}</b></td></tr></table>` +
         (fault.unknown.length ? `<p>영상으로 판단하지 못한 요소 (예상 범위가 넓어질 수 있습니다)</p>${list(fault.unknown)}` : '')
       : '';
+    const caseSrc = fault && caseSource(fault.cases ?? []);
     const refs = fault
       ? h('관련 법규', list((fault.laws ?? []).map((l) => `${l.name} ${l.article}(${l.title})`))) +
-        h('참고 판례', list((fault.cases ?? []).map((c) => `${c.court} ${c.date} ${c.number}`)))
+        h('참고 판례', list((fault.cases ?? []).map((c) => `${c.court} ${c.date} ${c.number}`))) +
+        (caseSrc ? `<p class="muted">출처: 과실비율정보포털 ${esc(caseSrc)}</p>` : '')
       : '';
     const violations = report.serious_violations.length
       ? `<ul>${report.serious_violations

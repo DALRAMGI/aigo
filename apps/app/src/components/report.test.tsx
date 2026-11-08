@@ -92,7 +92,7 @@ const withLaws = (laws: Report['fault'] extends infer F ? (F extends { laws: inf
 
 test('기준 탭에 관련 법규와 참고 판례가 보이고 누르면 url을 연다', async () => {
   const law = { name: '도로교통법', article: '제19조', title: '안전거리 확보 등', url: 'https://law.example/19' };
-  const c = { court: '대법원', date: '1986.12.9.', number: '86다카1551', url: 'https://law.example/c' };
+  const c = { court: '대법원', date: '1986.12.9.', number: '86다카1551', url: 'https://www.law.go.kr/판례/(86다카1551)' };
   await render(<ReportView analysis={withLaws([law], [c])} onReload={() => {}} tab="basis" onTab={() => {}} />);
   expect(screen.getByText('관련 법규')).toBeTruthy();
   expect(screen.getByText('참고 판례')).toBeTruthy();
@@ -100,6 +100,21 @@ test('기준 탭에 관련 법규와 참고 판례가 보이고 누르면 url을
   expect(WebBrowser.openBrowserAsync).toHaveBeenCalledWith(law.url);
   await fireEvent.press(screen.getByRole('button', { name: '대법원 1986.12.9. 86다카1551' }));
   expect(WebBrowser.openBrowserAsync).toHaveBeenCalledWith(c.url);
+});
+
+test('법제처 판례가 아닌 판례 url은 글로 두고 출처 한 줄만 연다', async () => {
+  (WebBrowser.openBrowserAsync as jest.Mock).mockClear();
+  const src = 'https://accident.knia.or.kr/myaccident-content?chartNo=1';
+  const cases = [
+    { court: '서울중앙지방법원', date: '2015.1.1.', number: '2014가단1', url: src },
+    { court: '수원지방법원', date: '2016.1.1.', number: '2015나2', url: src },
+  ];
+  await render(<ReportView analysis={withLaws([], cases)} onReload={() => {}} tab="basis" onTab={() => {}} />);
+  expect(screen.getByText('서울중앙지방법원 2015.1.1. 2014가단1')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: '서울중앙지방법원 2015.1.1. 2014가단1' })).toBeNull();
+  expect(screen.getAllByRole('button', { name: '출처: 과실비율정보포털' }).length).toBe(1);
+  await fireEvent.press(screen.getByRole('button', { name: '출처: 과실비율정보포털' }));
+  expect(WebBrowser.openBrowserAsync).toHaveBeenCalledWith(src);
 });
 
 test('법규와 판례가 없거나 옛 레포트에 필드가 없으면 제목을 숨긴다', async () => {
