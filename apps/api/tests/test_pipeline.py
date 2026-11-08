@@ -18,7 +18,7 @@ STAGES = ["normalize", "scan", "locate", "focus", "observe", "assess"]
 
 @pytest.fixture(scope="module")
 def clip_with_motion(tmp_path_factory):
-    return mk.flash(tmp_path_factory.mktemp("clip") / "motion.mp4")
+    return mk.flash(tmp_path_factory.mktemp("clip") / "motion.mp4", bang=True)  # 흔들림과 소리가 같이 있어야 후보가 된다.
 
 
 @pytest.fixture(scope="module")
@@ -200,6 +200,36 @@ def test_no_tracks_with_candidates_stays_low(clip_with_motion, tmp_path):
     ctx, _ = context(tmp_path, clip_with_motion, llm)
     res = run_pipeline(ctx)
     assert res.trace["track_count"] == 0 and res.trace["candidates"] and res.report.confidence == "low"
+
+
+def test_run_pipeline_passes_estimate(clip_with_motion, tmp_path, monkeypatch):
+    # 실제 흔들림·소리 신호에 트랙 하나만 얹는다. 관찰이 접촉을 못 봐도 센서 추정이 레포트를 낸다.
+    real = run_mod.scan
+    track = {1: [TrackPoint(1.0, (100.0, 60.0, 140.0, 90.0), "car", 0.9)]}
+    monkeypatch.setattr(run_mod, "scan", lambda frames: ScanResult(track, real(frames).motion))
+    llm = FakeLLM(observation(t=None, involvement="none", reason="접촉이 보이지 않습니다"))
+    ctx, _ = context(tmp_path, clip_with_motion, llm)
+    res = run_pipeline(ctx)
+    assert res.trace["candidates"] and res.trace["candidates"][0]["t"] == 3.0
+    assert res.trace["estimate"] == {"t": 3.0, "facts": [{"t": 3.0, "text": "화면이 크게 흔들림"},
+                                                         {"t": 3.0, "text": "충돌음이 크게 남"}]}
+    assert res.report.involvement == "party" and res.report.collision_t == 3.0 and res.report.summary.startswith("충돌 추정: ")
+    assert res.report.confidence == "low" and llm.responses == []
+
+
+def test_no_tracks_means_no_estimate(clip_with_motion, tmp_path):
+    llm = FakeLLM(observation(t=None, involvement="none", reason="접촉이 보이지 않습니다"))
+    ctx, _ = context(tmp_path, clip_with_motion, llm)
+    res = run_pipeline(ctx)
+    assert res.trace["candidates"] and res.trace["track_count"] == 0
+    assert res.trace["estimate"] is None and res.report.involvement == "none"
+
+
+def test_no_candidates_leaves_no_estimate(clip_blank, tmp_path):
+    llm = FakeLLM(observation(t=None, involvement="none", reason="차가 보이지 않습니다"))
+    ctx, _ = context(tmp_path, clip_blank, llm)
+    res = run_pipeline(ctx)
+    assert res.trace["estimate"] is None and res.report.involvement == "none"
 
 
 def test_worker_runs_real_pipeline_and_saves_report(db, user, storage, clip_with_motion):

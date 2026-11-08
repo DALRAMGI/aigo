@@ -6,7 +6,9 @@ from pydantic import BaseModel
 
 from app.fault import Chart, FaultTable, calculate
 from app.llm import InvalidOutput, ask
+from app.pipeline.estimate import Estimate
 from app.pipeline.focus import Keyframe
+from app.pipeline.locate import ALIGN_S
 from app.pipeline.observe import NEAR_FRAME_S, Fact, Observation, near_frame
 from app.report import Evidence, FaultAssessment, FaultStep, Report, SeriousViolation, confidence
 
@@ -14,6 +16,8 @@ NO_ACCIDENT = "영상에서 사고를 확인하지 못했습니다."
 NO_EVIDENCE = "영상에서 근거 시각이 있는 사실을 확인하지 못했습니다."
 NO_CHART = "기준 도표를 찾지 못했습니다."
 NO_COLLISION = "영상에서 충돌 순간을 확인하지 못했습니다."
+ESTIMATE_PREFIX = "충돌 추정: "
+SENSOR_ONLY = ESTIMATE_PREFIX + "센서 신호로 충돌을 추정했지만 영상에서 접촉 장면은 확인하지 못했습니다."
 PERCENT = re.compile(r"\d+\s*%")
 PAIR = re.compile(r"(\d+)\s*:\s*(\d+)")
 SeriousItem = Literal[
@@ -129,18 +133,39 @@ def _fault(chart: Chart, out: AssessOut, cite) -> FaultAssessment:
         laws=chart.laws, cases=chart.cases)
 
 
-def assess(observation: Observation, keyframes: list[Keyframe], table: FaultTable, llm, duration: float) -> Report:
-    o = observation
+def _unconfirmed(o: Observation, facts: list[Fact], duration: float) -> str | None:
+    """충돌 시각은 영상 안이고 그 곁에 프레임에서 본 사실이 있어야 확인된 것이다. 확인이 안 됐으면 그 이유."""
     if o.involvement == "none":
-        return _none(o.reason or NO_ACCIDENT)
-    facts = sorted((f for f in o.facts if 0 <= f.t <= duration and near_frame(f.t, keyframes)), key=lambda f: f.t)
+        return o.reason or NO_ACCIDENT
     if not facts:
-        return _none(NO_EVIDENCE)
-    # 충돌 시각은 영상 안이고 그 곁에 프레임에서 본 사실이 있어야 확인된 것이다. 확인이 안 되면 사고 레포트를 내지 않는다.
+        return NO_EVIDENCE
+    t = o.collision_t
+    if t is None or not 0 <= t <= duration or not any(abs(f.t - t) <= NEAR_FRAME_S for f in facts):
+        return NO_COLLISION
+    return None
+
+
+def _sensor_only(o: Observation, estimate: Estimate) -> Report:
+    # 프레임 사실이 없으니 판단 모델에 줄 것이 없다. 센서 사실만으로 추정을 보인다.
+    return Report(involvement="party", reason=None, accident_type=None, summary=SENSOR_ONLY, collision_t=estimate.t,
+                  confidence="low", severity=None, timeline=list(estimate.facts), facts=[], unseen=o.unseen, fault=None,
+                  fault_note=NO_CHART, serious_violations=[], favorable=[], unfavorable=[], actions_now=[], actions_later=[])
+
+
+def assess(observation: Observation, keyframes: list[Keyframe], table: FaultTable, llm, duration: float,
+           estimate: Estimate | None = None) -> Report:
+    o = observation
+    facts = sorted((f for f in o.facts if 0 <= f.t <= duration and near_frame(f.t, keyframes)), key=lambda f: f.t)
     collision_t = o.collision_t
-    if collision_t is None or not 0 <= collision_t <= duration or not any(
-            abs(f.t - collision_t) <= NEAR_FRAME_S for f in facts):
-        return _none(NO_COLLISION)
+    reason = _unconfirmed(o, facts, duration)
+    if reason and (estimate is None or o.involvement == "witness"):  # 남의 사고를 당사자로 바꾸지 않는다.
+        return _none(reason)
+    if reason:
+        # 센서 추정: 흔들림이 필수라 촬영 차가 당사자다. 충돌 시각 곁 사실 검사는 발동 조건이 대신한다.
+        # 추정 시각 곁에 프레임 사실이 없으면 모델이 볼 장면이 없으니 부르지 않는다.
+        if not any(abs(f.t - estimate.t) <= ALIGN_S + NEAR_FRAME_S for f in facts):
+            return _sensor_only(o, estimate)
+        o, collision_t = o.model_copy(update={"involvement": "party"}), estimate.t
     party = o.involvement == "party"
     charts = table.shortlist(o.scene) if party else []
     others = [c for c in table.charts if c not in charts] if party else []
@@ -188,8 +213,12 @@ def assess(observation: Observation, keyframes: list[Keyframe], table: FaultTabl
     level = confidence(True, len(cited), len(fault.unknown) if fault else 0)
     if party and not fault and level == "high":  # 충돌은 확인했어도 과실 판단이 없는 레포트다.
         level = "medium"
+    summary = out.summary
+    if reason:  # 센서 사실은 모델에 넣지 않고 여기서 타임라인에만 붙인다.
+        summary, level = ESTIMATE_PREFIX + summary, "low"
+        timeline = sorted({(e.t, e.text): e for e in timeline + estimate.facts}.values(), key=lambda e: e.t)
     return Report(
-        involvement=o.involvement, reason=None, accident_type=out.accident_type, summary=out.summary,
+        involvement=o.involvement, reason=None, accident_type=out.accident_type, summary=summary,
         collision_t=collision_t, confidence=level, severity=severity, timeline=timeline, facts=facts, unseen=o.unseen,
         fault=fault, fault_note=NO_CHART if party and not fault else None, serious_violations=violations,
         favorable=favorable, unfavorable=unfavorable, actions_now=out.actions_now, actions_later=out.actions_later)

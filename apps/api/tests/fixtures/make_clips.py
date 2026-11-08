@@ -39,10 +39,13 @@ def counter(out: Path, *, frames=60, rate=30) -> Path:
     return out
 
 
-def flash(out: Path, *, seconds=6, at=3.0) -> Path:
-    """회색 화면에 흰 면이 0.2초 번쩍인다. 소리 없이 모션 후보 하나만 나오는 영상."""
-    _ff("-f", "lavfi", "-i", f"color=c=gray:size=320x180:rate=30:duration={seconds}",
-        "-vf", f"drawbox=c=white:t=fill:enable='between(t,{at},{at + 0.2})'", "-pix_fmt", "yuv420p", str(out))
+def flash(out: Path, *, seconds=6, at=3.0, bang=False) -> Path:
+    """회색 화면에 흰 면이 0.2초 번쩍인다. bang이면 같은 때 0.2초 큰 소리가 난다(흔들림만으로는 후보 점수에 못 미친다)."""
+    cmd = ["-f", "lavfi", "-i", f"color=c=gray:size=320x180:rate=30:duration={seconds}"]
+    if bang:
+        cmd += ["-f", "lavfi", "-i", f"aevalsrc=exprs='if(between(t,{at},{at + 0.2}),0.9*sin(2*PI*440*t),0)':d={seconds}",
+                "-c:a", "aac", "-shortest"]
+    _ff(*cmd, "-vf", f"drawbox=c=white:t=fill:enable='between(t,{at},{at + 0.2})'", "-pix_fmt", "yuv420p", str(out))
     return out
 
 
