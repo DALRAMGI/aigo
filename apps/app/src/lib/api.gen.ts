@@ -254,6 +254,17 @@ export interface components {
              */
             created_at: string;
         };
+        /** CaseRef */
+        CaseRef: {
+            /** Court */
+            court: string;
+            /** Date */
+            date: string;
+            /** Number */
+            number: string;
+            /** Url */
+            url: string;
+        };
         /** ConfirmIn */
         ConfirmIn: {
             /** Payment Key */
@@ -298,6 +309,16 @@ export interface components {
             steps: components["schemas"]["FaultStep"][];
             /** Unknown */
             unknown: string[];
+            /**
+             * Laws
+             * @default []
+             */
+            laws: components["schemas"]["LawRef"][];
+            /**
+             * Cases
+             * @default []
+             */
+            cases: components["schemas"]["CaseRef"][];
         };
         /** FaultStep */
         FaultStep: {
@@ -311,6 +332,17 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** LawRef */
+        LawRef: {
+            /** Name */
+            name: string;
+            /** Article */
+            article: string;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
         };
         /** OrderIn */
         OrderIn: {

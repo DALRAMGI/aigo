@@ -1,4 +1,5 @@
 // analysis.ts가 api.ts를 거쳐 Clerk를 불러오고, Clerk는 타이머를 남긴다.
+jest.mock('expo-web-browser', () => ({ openBrowserAsync: jest.fn(() => Promise.resolve()) }));
 jest.mock('@clerk/expo', () => ({ useAuth: jest.fn() }));
 const mockPlayer = { pause: jest.fn(), currentTime: 0, loop: true, status: 'idle' };
 jest.mock('expo-video', () => {
@@ -7,6 +8,7 @@ jest.mock('expo-video', () => {
 });
 jest.mock('expo', () => ({ ...jest.requireActual('expo'), useEvent: (_p: unknown, _e: string, init: unknown) => init }));
 
+import * as WebBrowser from 'expo-web-browser';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { Analysis, Report } from '@/lib/analysis';
 import { ProgressView, ReportView } from './analysis';
@@ -22,7 +24,7 @@ const report: Report = {
   timeline: [{ t: 9, text: '상대 차가 왼쪽에서 차로를 바꿈' }],
   facts: [],
   unseen: ['신호 상태'],
-  fault: { chart_id: '차43-2', chart_title: '진로변경 사고', source_url: 'https://example.com', me: 'A', base: 30, my_min: 20, my_max: 40, steps: [], unknown: [] },
+  fault: { chart_id: '차43-2', chart_title: '진로변경 사고', source_url: 'https://example.com', me: 'A', base: 30, my_min: 20, my_max: 40, steps: [], unknown: [], laws: [], cases: [] },
   fault_note: null,
   serious_violations: [],
   favorable: [],
@@ -83,4 +85,35 @@ test('근거 탭을 떠나면 영상을 멈춘다', async () => {
   mockPlayer.pause.mockClear();
   await rerender(<ReportView {...props} tab="summary" />);
   expect(mockPlayer.pause).toHaveBeenCalled();
+});
+
+const withLaws = (laws: Report['fault'] extends infer F ? (F extends { laws: infer L } ? L : never) : never, cases: any[] = []) =>
+  analysis({ report: { ...report, fault: { ...report.fault!, laws, cases } } });
+
+test('기준 탭에 관련 법규와 참고 판례가 보이고 누르면 url을 연다', async () => {
+  const law = { name: '도로교통법', article: '제19조', title: '안전거리 확보 등', url: 'https://law.example/19' };
+  const c = { court: '대법원', date: '1986.12.9.', number: '86다카1551', url: 'https://law.example/c' };
+  await render(<ReportView analysis={withLaws([law], [c])} onReload={() => {}} tab="basis" onTab={() => {}} />);
+  expect(screen.getByText('관련 법규')).toBeTruthy();
+  expect(screen.getByText('참고 판례')).toBeTruthy();
+  await fireEvent.press(screen.getByRole('button', { name: '도로교통법 제19조(안전거리 확보 등)' }));
+  expect(WebBrowser.openBrowserAsync).toHaveBeenCalledWith(law.url);
+  await fireEvent.press(screen.getByRole('button', { name: '대법원 1986.12.9. 86다카1551' }));
+  expect(WebBrowser.openBrowserAsync).toHaveBeenCalledWith(c.url);
+});
+
+test('법규와 판례가 없거나 옛 레포트에 필드가 없으면 제목을 숨긴다', async () => {
+  const old = analysis({ report: { ...report, fault: { ...report.fault!, laws: undefined, cases: undefined } as any } });
+  await render(<ReportView analysis={old} onReload={() => {}} tab="basis" onTab={() => {}} />);
+  expect(screen.queryByText('관련 법규')).toBeNull();
+  expect(screen.queryByText('참고 판례')).toBeNull();
+});
+
+test('http(s)가 아닌 url은 누를 수 없고 열지 않는다', async () => {
+  (WebBrowser.openBrowserAsync as jest.Mock).mockClear();
+  const law = { name: '도로교통법', article: '제19조', title: '안전거리 확보 등', url: 'javascript:alert(1)' };
+  await render(<ReportView analysis={withLaws([law])} onReload={() => {}} tab="basis" onTab={() => {}} />);
+  expect(screen.getByText('도로교통법 제19조(안전거리 확보 등)')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: '도로교통법 제19조(안전거리 확보 등)' })).toBeNull();
+  expect(WebBrowser.openBrowserAsync).not.toHaveBeenCalled();
 });

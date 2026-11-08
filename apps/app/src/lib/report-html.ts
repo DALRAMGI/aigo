@@ -36,6 +36,10 @@ export function reportHtml(report: Report, createdAt: string): string {
         `<tr><td><b>내 과실 예상</b></td><td><b>${esc(faultRange(fault))}</b></td></tr></table>` +
         (fault.unknown.length ? `<p>영상으로 판단하지 못한 요소 (예상 범위가 넓어질 수 있습니다)</p>${list(fault.unknown)}` : '')
       : '';
+    const refs = fault
+      ? h('관련 법규', list((fault.laws ?? []).map((l) => `${l.name} ${l.article}(${l.title})`))) +
+        h('참고 판례', list((fault.cases ?? []).map((c) => `${c.court} ${c.date} ${c.number}`)))
+      : '';
     const violations = report.serious_violations.length
       ? `<ul>${report.serious_violations
           .map((v) => `<li>${esc(v.item)} · ${esc(LIKELIHOOD[v.likelihood])}${v.evidence ? `<br><span class="muted">${esc(formatTime(v.evidence.t))} ${esc(v.evidence.text)}</span>` : ''}</li>`)
@@ -47,6 +51,7 @@ export function reportHtml(report: Report, createdAt: string): string {
       h('타임라인', rows(report.timeline)) +
       h('그 밖에 확인된 사실', rows(others)) +
       h('과실 근거', faultBody) +
+      refs +
       h('유리한 점', list(report.favorable)) +
       h('불리한 점', list(report.unfavorable)) +
       h('12대 중과실', violations) +
