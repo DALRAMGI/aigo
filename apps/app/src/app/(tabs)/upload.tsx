@@ -11,7 +11,7 @@ import { ApiFailure, useApi } from '@/lib/api';
 import { registerPush } from '@/lib/push';
 import { checkTrim, checkVideo, fileSize, isTicketExpired, uploadVideo, videoName, type UploadTicket } from '@/lib/upload';
 import { deleteCached } from '@/lib/cache';
-import { nextUploadState } from '@/lib/upload-state';
+import { afterInFlight, nextUploadState } from '@/lib/upload-state';
 import { tabBarSpace } from '@/theme';
 
 const CONSENT_TEXT = '영상에는 번호판과 얼굴이 담길 수 있고, 분석을 위해 프레임이 OpenAI로 전송되며, 분석을 삭제하면 파일까지 지웁니다.';
@@ -43,6 +43,10 @@ export default function UploadScreen() {
   const [failure, setFailure] = useState<{ code: string; message: string } | null>(null);
   const [trim, setTrim] = useState<{ start: number | null; end: number | null }>({ start: null, end: null });
   const attempt = useRef<Attempt | null>(null);
+  const inFlight = useRef(false); // start()가 도는 동안 true
+  const pending = useRef<{ next: Picked; event: 'shared' | 'picked' } | null>(null); // 올리는 중에 들어온 영상
+  const fileUri = useRef<string | null>(null);
+  fileUri.current = file?.uri ?? null;
   const abort = useRef(new AbortController());
 
   const player = useVideoPlayer(file?.uri ?? null);
@@ -50,16 +54,34 @@ export default function UploadScreen() {
   useEffect(() => () => abort.current.abort(), []);
 
   // 같은 영상이면 그대로 둔다(탭을 오가거나 같은 영상이 다시 공유돼도 올리던 attempt를 살린다).
-  const choose = (next: Picked, event: 'shared' | 'picked') => {
-    const r = nextUploadState({ fileUri: file?.uri ?? null, attemptUri: attempt.current?.uri ?? null }, event, next.uri);
-    if (!r.resetFile) return;
-    if (r.dropAttempt) attempt.current = null;
+  const apply = (next: Picked, event: 'shared' | 'picked') => {
     if (event === 'shared') setConsent(false);
     const problem = checkVideo(next.name, next.size);
     setFile(problem ? null : next);
     setFileError(problem);
     setFailure(null);
     setTrim({ start: null, end: null });
+  };
+  const choose = (next: Picked, event: 'shared' | 'picked') => {
+    const r = nextUploadState({ fileUri: fileUri.current, attemptUri: attempt.current?.uri ?? null }, event, next.uri, inFlight.current);
+    if (r.defer) pending.current = { next, event }; // 올리기가 끝난 뒤에 연다.
+    if (!r.resetFile) return;
+    if (r.dropAttempt) attempt.current = null;
+    apply(next, event);
+  };
+  // 올리기가 끝난 뒤: 미뤄 둔 영상이 있으면 열고 옛 attempt를 버린다. 성공했으면 내 영상만 비운다.
+  const settle = (ok: boolean, ownUri: string) => {
+    const p = pending.current;
+    pending.current = null;
+    const r = afterInFlight(ok, p?.next.uri ?? null, fileUri.current === ownUri);
+    if (r.dropAttempt) attempt.current = null;
+    if (p) apply(p.next, p.event);
+    else if (r.resetFile) {
+      setFile(null);
+      setTrim({ start: null, end: null });
+      setConsent(false);
+      setFailure(null);
+    }
   };
 
   // 다른 화면(공유 메뉴, 구간 자르기)이 넘긴 파일. 크기와 이름이 없으면 여기서 구한다.
@@ -76,6 +98,7 @@ export default function UploadScreen() {
 
   async function start() {
     if (!file) return;
+    inFlight.current = true;
     setFailure(null);
     setPercent(0);
     setPhase('uploading');
@@ -100,15 +123,9 @@ export default function UploadScreen() {
       registerPush(api, true); // 첫 분석을 낸 뒤에 알림 권한을 묻는다. 기다리지 않는다.
       deleteCached(file.uri); // 올린 뒤에는 앱 캐시의 복사본이 필요 없다.
       const id = a.ticket.id;
-      // 제출이 끝났으니 탭에 남은 영상과 attempt를 비운다.
-      if (nextUploadState({ fileUri: file.uri, attemptUri: a.uri }, 'submitted').resetFile) {
-        attempt.current = null;
-        setFile(null);
-        setTrim({ start: null, end: null });
-        setConsent(false);
-        setFailure(null);
-        setPhase('idle');
-      }
+      // 제출이 끝났으니 내 영상과 attempt를 비운다(미뤄 둔 영상이 있으면 그 영상을 연다).
+      settle(true, a.uri);
+      setPhase('idle');
       router.replace(`/analyses/${id}`);
     } catch (e) {
       if (abort.current.signal.aborted) return; // 화면을 떠났다.
@@ -116,7 +133,9 @@ export default function UploadScreen() {
       if (err.code === 'UPLOAD_INCOMPLETE' && attempt.current) attempt.current.uploaded = false;
       setFailure({ code: err.code, message: err.message });
       setPhase('idle');
+      if (pending.current) settle(false, file.uri);
     } finally {
+      inFlight.current = false;
       deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => {});
     }
   }
