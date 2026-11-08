@@ -2,9 +2,9 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, Text } from 'react-native';
-import { Button, ErrorText, Input, styles } from '@/components/ui';
-import { tabBarSpace } from '@/theme';
+import { Alert, Linking, Pressable, Text, View } from 'react-native';
+import { Button, Card, Icon, ListRow, Screen, TextField, TopBar } from '@/components/ui';
+import { color, space, type } from '@/theme';
 import { addScenePhoto, getInsurerPhone, setInsurerPhone, type SceneLocation } from '@/lib/scene-store';
 
 const CHECKLIST = [
@@ -44,7 +44,7 @@ function call(number: string) {
   Linking.openURL(`tel:${number}`).catch(() => Alert.alert('전화를 걸 수 없습니다.', `${number}로 직접 전화해 주세요.`));
 }
 
-export function SceneBody({ tabInset }: { tabInset?: boolean }) {
+export function SceneBody({ tabInset, onBack }: { tabInset?: boolean; onBack?: () => void }) {
   const router = useRouter();
   const [checked, setChecked] = useState<boolean[]>(CHECKLIST.map(() => false));
   const [saved, setSaved] = useState<string | null>(null);
@@ -94,26 +94,40 @@ export function SceneBody({ tabInset }: { tabInset?: boolean }) {
   }
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 24 + (tabInset ? tabBarSpace : 0), gap: 12 }}>
-      {CHECKLIST.map((text, i) => (
-        <Pressable
-          key={text}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: checked[i] }}
-          onPress={() => setChecked(checked.map((c, j) => (j === i ? !c : c)))}
-        >
-          <Text style={{ fontSize: 16 }}>{checked[i] ? '☑ ' : '☐ '}{text}</Text>
-        </Pressable>
-      ))}
-      <Button label="112 신고 전화" onPress={() => call('112')} />
-      <Button label="119 신고 전화" onPress={() => call('119')} />
-      <Button label="보험사에 전화" disabled={!saved} onPress={() => saved && call(saved)} />
-      <Text style={styles.title}>보험사 번호</Text>
-      <Input value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="보험사 전화번호" />
-      <ErrorText>{error}</ErrorText>
-      <Button label="번호 저장" secondary onPress={savePhone} />
-      <Button label="현장 사진 촬영" disabled={shooting} onPress={shoot} />
-      <Button label="찍은 사진 보기" secondary onPress={() => router.push('/scene/photos')} />
-    </ScrollView>
+    <Screen scroll tabInset={tabInset}>
+      <TopBar title="사고 현장 모드" onBack={onBack} />
+      <View style={{ flexDirection: 'row', gap: space[3] }}>
+        <View style={{ flex: 1 }}><Button label="112 신고 전화" variant="emergency" icon="phone" onPress={() => call('112')} /></View>
+        <View style={{ flex: 1 }}><Button label="119 신고 전화" variant="emergency" icon="phone" onPress={() => call('119')} /></View>
+      </View>
+      <Card title="침착하게 순서대로">
+        {CHECKLIST.map((text, i) => (
+          <Pressable
+            key={text}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: checked[i] }}
+            onPress={() => setChecked(checked.map((c, j) => (j === i ? !c : c)))}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: 44 }}
+          >
+            <View style={{ width: 24, height: 24, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: checked[i] ? color.brand : color.white, borderWidth: checked[i] ? 0 : 1.5, borderColor: color.gray9 }}>
+              {checked[i] ? <Icon name="check" size={16} color={color.ink} /> : null}
+            </View>
+            <Text style={[type.body, { flex: 1, color: checked[i] ? color.gray9 : color.gray12, textDecorationLine: checked[i] ? 'line-through' : 'none' }]}>{text}</Text>
+          </Pressable>
+        ))}
+      </Card>
+      <Button label="현장 사진 촬영" variant="dark" icon="camera" disabled={shooting} onPress={shoot} />
+      <ListRow
+        leading={<Icon name="image" size={20} color={color.gray11} />}
+        title="찍은 사진 보기"
+        trailing={<Icon name="chevron" size={16} color={color.gray9} />}
+        onPress={() => router.push('/scene/photos')}
+      />
+      <Card title="보험사">
+        <TextField label="보험사 번호" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="보험사 전화번호" error={error} />
+        <Button label="번호 저장" variant="secondary" size="md" onPress={savePhone} />
+        <Button label="보험사에 전화" icon="phone" disabled={!saved} onPress={() => saved && call(saved)} />
+      </Card>
+    </Screen>
   );
 }
