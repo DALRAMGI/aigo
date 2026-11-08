@@ -27,9 +27,10 @@ export default function AnalysisScreen() {
   }, [tab]);
 
   // 다른 기기에서 지워졌으면 알리고 목록으로 돌아간다. 폴링은 이미 멈췄다.
+  // 목록·업로드로 갈 때는 dismissTo로 아래의 탭 묶음까지 내려간다(replace는 탭 묶음을 하나 더 쌓는다).
   useEffect(() => {
     if (notFound === null) return;
-    Alert.alert('분석을 찾을 수 없습니다', notFound, [{ text: '확인', onPress: () => router.replace('/analyses') }]);
+    Alert.alert('분석을 찾을 수 없습니다', notFound, [{ text: '확인', onPress: () => router.dismissTo('/analyses') }]);
   }, [notFound, router]);
 
   const share = async () => {
@@ -58,7 +59,7 @@ export default function AnalysisScreen() {
           try {
             await api(`/api/v1/analyses/${id}`, { method: 'DELETE' });
             deleteReportPdf(id);
-            router.replace('/analyses');
+            router.dismissTo('/analyses');
           } catch (e) {
             setError((e as ApiFailure).message);
             setDeleting(false);
@@ -96,10 +97,15 @@ export default function AnalysisScreen() {
             </Card>
           )}
           {analysis.status !== 'queued' && analysis.status !== 'processing' && analysis.status !== 'done' ? (
-            <Button label="영상 다시 올리기" onPress={() => router.replace('/upload')} />
+            <Button label="영상 다시 올리기" onPress={() => router.dismissTo('/upload')} />
           ) : null}
-          {/* 레포트 탭이 있으면 삭제는 기준 탭 맨 아래에 둔다. */}
-          {!tabbed || tab === 'basis' ? <Button label="분석 삭제" variant="danger" icon="trash" disabled={deleting} onPress={remove} /> : null}
+          {/* 레포트 탭이 있으면 삭제는 기준 탭 맨 아래에 둔다. 오류는 맨 위와 버튼 바로 위에 모두 보인다. */}
+          {!tabbed || tab === 'basis' ? (
+            <>
+              <ErrorLine>{error}</ErrorLine>
+              <Button label="분석 삭제" variant="danger" icon="trash" disabled={deleting} onPress={remove} />
+            </>
+          ) : null}
         </>
       ) : notFound ? null : (
         <Text style={[type.body, { color: color.gray11 }]}>불러오는 중</Text>

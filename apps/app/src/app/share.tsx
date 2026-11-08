@@ -2,9 +2,10 @@ import { useAuth } from '@clerk/expo';
 import { useRouter } from 'expo-router';
 import { useIncomingShare } from 'expo-sharing';
 import { useEffect, useRef } from 'react';
-import { ActivityIndicator } from 'react-native';
-import { Button, EmptyState, Screen } from '@/components/ui';
+import { ActivityIndicator, View } from 'react-native';
+import { Button, EmptyState, Screen, TopBar } from '@/components/ui';
 import { videoName } from '@/lib/upload';
+import { space } from '@/theme';
 
 // 공유 메뉴로 받은 영상을 업로드 화면으로 넘긴다. 로그인 보호 밖에 두고, 로그인 전이면 받은 데이터를 지우지 않고 안내만 한다.
 // 스택에 남아 있으면 로그인 순간 이 화면이 데이터를 지우고 닫힌 경로로 이동하므로 로그인 화면으로 갈 때 교체한다.
@@ -29,11 +30,15 @@ export default function ShareScreen() {
     router.push({ pathname: '/upload', params: { uri, name: videoName(uri, video?.originalName, video?.mimeType), size: String(video?.contentSize ?? '') } });
   }, [isLoaded, isSignedIn, uri, video, clearSharedPayloads, router]);
 
+  // 네이티브 헤더 대신 다른 화면처럼 TopBar를 그린다. 공유로 바로 열리면 뒤로 갈 곳이 없어 뒤로 버튼은 두지 않는다.
+  const bar = <TopBar title="공유받은 영상" />;
+
   // 해석이 시작되기 전(첫 렌더)에도 결과가 비어 있으므로 데이터가 있고 아직 결과도 오류도 없으면 로딩으로 본다.
   const waiting = sharedPayloads.length > 0 && resolvedSharedPayloads.length === 0 && !error;
   if (!isLoaded || (isSignedIn && (isResolving || waiting || uri))) {
     return (
       <Screen>
+        {bar}
         <ActivityIndicator style={{ marginTop: 32 }} />
         {/* 오프라인이면 Clerk가 끝내 로드되지 않는다. */}
         {!isLoaded ? <Button label="사고 현장 모드" variant="danger" onPress={() => router.replace('/scene')} /> : null}
@@ -44,8 +49,12 @@ export default function ShareScreen() {
   if (!isSignedIn) {
     return (
       <Screen>
+        {bar}
         <EmptyState icon="lock" title="로그인이 필요합니다" body="공유받은 영상은 로그인한 뒤 이어서 올릴 수 있습니다.">
-          <Button label="로그인하러 가기" onPress={() => router.replace('/sign-in')} />
+          <View style={{ gap: space[3] }}>
+            <Button label="로그인하러 가기" onPress={() => router.replace('/sign-in')} />
+            <Button label="사고 현장 모드" variant="danger" onPress={() => router.replace('/scene')} />
+          </View>
         </EmptyState>
       </Screen>
     );
@@ -62,6 +71,7 @@ export default function ShareScreen() {
           : '영상 파일만 분석할 수 있습니다.';
   return (
     <Screen>
+      {bar}
       <EmptyState icon="share" title={message}>
         <Button
           label="처음으로"

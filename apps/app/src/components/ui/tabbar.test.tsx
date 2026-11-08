@@ -1,5 +1,6 @@
 import type { BottomTabBarProps } from 'expo-router/build/layouts/Tabs';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { Keyboard } from 'react-native';
 import { FloatingTabBar, TAB_ITEMS } from './FloatingTabBar';
 
 function props(navigate = jest.fn()) {
@@ -23,4 +24,17 @@ test('계정을 누르면 account 탭으로 이동한다', async () => {
   await render(<FloatingTabBar {...props(navigate)} />);
   await fireEvent.press(screen.getByRole('tab', { name: '계정' }));
   expect(navigate).toHaveBeenCalledWith('account-k');
+});
+
+test('키보드가 열리면 숨고 닫히면 다시 보인다', async () => {
+  const handlers: Record<string, () => void> = {};
+  jest.spyOn(Keyboard, 'addListener').mockImplementation(((e: string, h: () => void) => {
+    handlers[e] = h;
+    return { remove: jest.fn() };
+  }) as unknown as typeof Keyboard.addListener);
+  await render(<FloatingTabBar {...props()} />);
+  await act(async () => handlers.keyboardDidShow());
+  expect(screen.queryAllByRole('tab')).toHaveLength(0);
+  await act(async () => handlers.keyboardDidHide());
+  expect(screen.getAllByRole('tab')).toHaveLength(5);
 });

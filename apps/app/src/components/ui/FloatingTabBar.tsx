@@ -1,6 +1,6 @@
 import type { BottomTabBarProps } from 'expo-router/build/layouts/Tabs';
-import { useEffect, useRef } from 'react';
-import { Animated, Pressable, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Keyboard, Pressable, View } from 'react-native';
 import { color } from '@/theme';
 import { Icon, type IconName } from './Icon';
 
@@ -20,6 +20,15 @@ export function FloatingTabBar({ state, emitter, navigateToTab, insets }: Bottom
   useEffect(() => {
     Animated.spring(x, { toValue: state.index * CELL, useNativeDriver: true }).start();
   }, [state.index, x]);
+
+  // 키보드가 열리면 숨긴다(현장 모드 탭의 보험사 번호 입력이 가려지지 않게).
+  const [keyboard, setKeyboard] = useState(false);
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () => setKeyboard(true));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboard(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+  if (keyboard) return null;
 
   return (
     <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: insets.bottom + 18, alignItems: 'center' }}>

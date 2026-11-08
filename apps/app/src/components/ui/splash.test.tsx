@@ -46,21 +46,26 @@ test('모션은 화면 읽기에 AIGO로 읽힌다', async () => {
   expect(screen.getByLabelText('AIGO')).toBeTruthy();
 });
 
-test('Clerk가 로드되지 않아도 모션 중과 모션 뒤에 현장 모드 버튼이 있다', async () => {
-  mockUseAuth.mockReturnValue({ isLoaded: false });
-  await render(<Index />);
-  expect(screen.getByRole('button', { name: '사고 현장 모드' })).toBeTruthy();
-  await act(async () => { jest.advanceTimersByTime(1500); });
-  expect(screen.getByRole('button', { name: '사고 현장 모드' })).toBeTruthy();
-  expect(screen.getByText('불러오는 중...')).toBeTruthy();
-  await fireEvent.press(screen.getByRole('button', { name: '사고 현장 모드' }));
-  expect(mockPush).toHaveBeenCalledWith('/scene');
-});
-
-test('모션이 끝나고 Clerk가 로드되면 기존 분기대로 이동한다', async () => {
+// index의 splashPlayed는 모듈 상태라 이 파일 안에서 이어진다. 아래 세 테스트는 순서대로 돈다.
+test('처음 마운트: 모션 중에도 현장 모드 버튼이 있고, 모션이 끝나고 Clerk가 로드되면 기존 분기대로 이동한다', async () => {
   mockUseAuth.mockReturnValue({ isLoaded: true, isSignedIn: false });
   await render(<Index />);
+  expect(screen.getByRole('button', { name: '사고 현장 모드' })).toBeTruthy();
   expect(screen.queryByText('redirect:/sign-in')).toBeNull();
   await act(async () => { jest.advanceTimersByTime(1500); });
   expect(screen.getByText('redirect:/sign-in')).toBeTruthy();
+});
+
+test('index가 다시 마운트되면 모션을 건너뛰고 바로 이동한다', async () => {
+  mockUseAuth.mockReturnValue({ isLoaded: true, isSignedIn: false });
+  await render(<Index />);
+  expect(screen.getByText('redirect:/sign-in')).toBeTruthy();
+});
+
+test('Clerk가 로드되지 않으면 현장 모드 버튼과 불러오는 중이 보이고 버튼은 /scene으로 간다', async () => {
+  mockUseAuth.mockReturnValue({ isLoaded: false });
+  await render(<Index />);
+  expect(screen.getByText('불러오는 중...')).toBeTruthy();
+  await fireEvent.press(screen.getByRole('button', { name: '사고 현장 모드' }));
+  expect(mockPush).toHaveBeenCalledWith('/scene');
 });
