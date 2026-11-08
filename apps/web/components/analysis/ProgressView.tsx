@@ -6,6 +6,7 @@ import { Notice } from "@/components/ui/Notice";
 import { formatTime } from "@/lib/format";
 import { FailureNotice } from "./FailureNotice";
 import type { Analysis } from "./types";
+import { SourceBadge } from "./SourceBadge";
 
 type Detail = {
   duration?: number;
@@ -96,9 +97,12 @@ export function ProgressView({ analysis, stale }: { analysis: Analysis; stale?: 
     <div>
       <header className="flex flex-col gap-3 p-5 md:p-10">
         <div aria-live="polite" className="flex flex-col gap-3">
-          <p className="hud text-muted">
-            {failed || abandoned ? "분석 중단" : current >= 0 ? `단계 ${current + 1}/${STAGES.length}` : "대기열"}
-          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="hud text-muted">
+              {failed || abandoned ? "분석 중단" : current >= 0 ? `단계 ${current + 1}/${STAGES.length}` : "대기열"}
+            </p>
+            <SourceBadge source={analysis.source} />
+          </div>
           <h1 className="text-3xl leading-tight font-bold tracking-[-0.02em] text-ink-strong md:text-5xl">{headline}</h1>
         </div>
         {!failed && !abandoned && (

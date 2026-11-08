@@ -236,6 +236,8 @@ export interface components {
         AnalysisOut: {
             /** Id */
             id: number;
+            /** Source */
+            source: string;
             /** Status */
             status: string;
             /** Stage */

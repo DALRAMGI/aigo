@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/Badge";
 import { buttonClass } from "@/components/ui/Button";
 import { faultRange } from "./FaultBreakdown";
 import { FAILURES, type Analysis } from "./types";
+import { SourceBadge } from "./SourceBadge";
 
 const STATUS = {
   created: { label: "업로드 미완료", tone: "neutral" },
@@ -46,7 +47,8 @@ export function AnalysisList({ items }: { items: Analysis[] }) {
                 {title(a)}
               </Link>
               <span className="font-mono text-sm">{fault ? `내 과실 ${faultRange(fault)}` : ""}</span>
-              <span className="md:justify-self-end">
+              <span className="flex flex-wrap gap-3 md:justify-self-end">
+                <SourceBadge source={a.source} />
                 <Badge tone={status.tone}>{status.label}</Badge>
               </span>
             </div>
