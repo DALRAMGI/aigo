@@ -4,7 +4,7 @@
     "slug": "aigo",
     "version": "0.1.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/brand/icon-dark.png",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
@@ -12,17 +12,16 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#FFFFFF",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/brand/adaptive-foreground.png",
+        "monochromeImage": "./assets/brand/adaptive-monochrome.png",
+        "backgroundColor": "#1C1C1C"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.jcmaker.aigo",
       "allowBackup": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/brand/icon-dark.png"
     },
     "scheme": "aigo",
     "plugins": [
@@ -61,6 +60,15 @@
           "cameraPermission": "사고 현장 사진을 찍기 위해 카메라를 사용합니다.",
           "microphonePermission": false,
           "photosPermission": "영상을 선택하기 위해 사진 보관함에 접근합니다."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/brand/splash-a.png",
+          "backgroundColor": "#1C1C1C",
+          "imageWidth": 480,
+          "resizeMode": "contain"
         }
       ]
     ]
