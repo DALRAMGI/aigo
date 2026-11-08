@@ -4,7 +4,9 @@ from dataclasses import dataclass
 from app.pipeline.locate import ALIGN_S, Candidate
 from app.report import Evidence
 
-STRONG = {"motion": 0.6, "audio": 0.6, "decel": 0.6}  # 초기값, Task 7에서 조정
+# 초안 정답 기준, tuned 분할(eval/results/20261108T101312Z-tuning.md). 세 신호 같은 값으로 0.4~0.9를 0.05 간격으로 훑었다.
+# 무사고 7개 추정 0은 0.4~0.9 모두 지킨다. 0.4면 시각이 틀린 추정(AQAX 6.2초, 정답 9.6초)이 켜지고 0.55부터는 1초 이내 추정이 하나 준다.
+STRONG = {"motion": 0.45, "audio": 0.45, "decel": 0.45}
 SENSOR_TEXT = {"audio": "충돌음이 크게 남", "motion": "화면이 크게 흔들림", "decel": "앞차가 급정지함"}
 
 
