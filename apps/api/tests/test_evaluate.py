@@ -299,3 +299,17 @@ def test_committed_eval_files_hold_no_local_paths():
     for path in [*(ROOT / "eval" / "review").glob("*.md"), *(ROOT / "eval" / "results").iterdir()]:
         text = path.read_text(encoding="utf-8")
         assert "/Users/" not in text and "/private/" not in text, path.name
+
+
+def test_run_clip_saves_candidates(monkeypatch):
+    from types import SimpleNamespace as NS
+
+    cands = [{"t": 1.0, "score": 0.5, "signals": {"box": 0.5}}]
+    rep = NS(timeline=[], fault=None, involvement="none", collision_t=None, confidence="low", severity=None,
+             summary="", reason="", serious_violations=[])
+    trace = {"candidates": cands, "observation": {"scene": "x"}, "extra_focus": False, "stage_seconds": {}}
+    monkeypatch.setattr("app.llm.LLM", lambda: NS(calls=[]))
+    monkeypatch.setattr("app.fault.FaultTable.load", classmethod(lambda cls: None))
+    monkeypatch.setattr("app.pipeline.run.run_pipeline", lambda ctx: NS(report=rep, trace=trace))
+    video = ROOT / "tests" / "test_evaluate.py"  # 내용은 쓰지 않는다. 복사만 된다.
+    assert ev.run_clip(entry(), video)["candidates"] == cands

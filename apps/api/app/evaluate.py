@@ -171,7 +171,7 @@ def run_clip(e: dict, video: Path) -> dict:
             "confidence": rep.confidence, "severity": rep.severity, "scene": res.trace["observation"]["scene"],
             "extra_focus": res.trace["extra_focus"], "unknown": fault.unknown if fault else [],
             "serious": [v.model_dump(exclude={"evidence"}) for v in rep.serious_violations],
-            "evidence": [{"t": v.t, "text": v.text} for v in evidence], "summary": rep.summary, "reason": rep.reason,
+            "evidence": [{"t": v.t, "text": v.text} for v in evidence], "candidates": res.trace["candidates"], "summary": rep.summary, "reason": rep.reason,
             "seconds": round(time.perf_counter() - started, 1), "stage_seconds": res.trace["stage_seconds"],
             "calls": len(llm.calls), "cost": round(cost(llm.calls, settings.openai_model), 4)}
 

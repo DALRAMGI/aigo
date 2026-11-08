@@ -123,8 +123,9 @@ def _audio_series(audio, n: int) -> np.ndarray | None:
     return _normalized(_sudden(_on_grid(audio, n)), AUDIO_MAD_K, AUDIO_MAD_FLOOR)
 
 
-def find_candidates(tracks, frame_area, motion, audio, max_candidates=3, aspect=16 / 9) -> list[Candidate]:
-    """aspect는 화면 가로/세로 비율이다. 경로 판단과 보닛 판단에 쓴다."""
+def find_candidates(tracks, frame_area, motion, audio, max_candidates=3, aspect=16 / 9,
+                    debug: dict | None = None) -> list[Candidate]:
+    """aspect는 화면 가로/세로 비율이다. 경로 판단과 보닛 판단에 쓴다. debug를 주면 시각별 신호 배열을 채워 준다."""
     ends = [t for t, _ in motion] + [p.t for ps in tracks.values() for p in ps] + [t for t, _ in audio or []]
     if not ends:
         return []
@@ -142,6 +143,8 @@ def find_candidates(tracks, frame_area, motion, audio, max_candidates=3, aspect=
         v[:round(SKIP_START_S / STEP_S) + 1] = 0
     series = {k: _spread(v) for k, v in peaks.items()}
 
+    if debug is not None:
+        debug.update({k: [round(float(x), 3) for x in v] for k, v in series.items()}, step_s=STEP_S)
     total = sum(WEIGHTS[k] for k in series)
     score = sum(WEIGHTS[k] / total * v for k, v in series.items())
 
