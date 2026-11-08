@@ -149,7 +149,7 @@ def main() -> None:
     baseline["result"] = evaluate(rows, **{k: baseline[k] for k in ("weights", "min_score", "strong")})
     chosen, coarse = search(rows, a.split)
     a.out.write_text(render(rows, chosen, coarse, a.split, baseline), encoding="utf-8")
-    a.out.with_suffix(".json").write_text(json.dumps({"split": a.split, "chosen": chosen, "baseline": baseline, "grid": coarse},
+    a.out.with_suffix(".json").write_text(json.dumps({"split": a.split, "chosen": chosen, "baseline": baseline},
                                                      ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(a.out)
 

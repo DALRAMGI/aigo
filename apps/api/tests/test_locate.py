@@ -86,8 +86,9 @@ def _leaving_track():
     return [TrackPoint(round(12.2 + i * 0.2, 6), b, "car", 0.8) for i, b in enumerate(boxes)]
 
 
-# 상자만(0.49)이면 점수 0.27로 MIN_SCORE 0.3에 못 미친다. 살리려면 decel을 0에 가깝게 두거나 MIN_SCORE를 0.25로 내려야 하고,
-# 그러면 사고 후보(1초 이내)가 17개에서 16개로 준다(Task 7 조정, 초안 정답 기준). 실제 AA8U는 충돌음이 더해져 후보로 잡힌다.
+# 상자만(0.49)이면 점수 0.27로 MIN_SCORE 0.3에 못 미친다. 살리려면 MIN_SCORE를 0.25로 내려야 하는데,
+# 그러면 사고 후보(1초 이내) 재현율이 17/18에서 16/18로 준다(Task 7a 조정 보고서, 초안 정답 기준).
+# 실제 AA8U는 충돌음이 더해져 후보로 잡힌다.
 @pytest.mark.xfail(strict=True, reason="상자 단독 후보는 Task 7 가중치에서 포기(사고 후보 17/18 우선)")
 def test_car_leaving_frame_finds_collision():
     got = find_candidates({1: _leaving_track()}, AREA, _motion(), None)
