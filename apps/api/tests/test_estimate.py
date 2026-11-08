@@ -25,9 +25,22 @@ def test_signals_far_apart_not_aligned():
     assert estimate_collision([c(5.0, motion=0.9, audio=0.9, peaks={"box": None, "motion": 5.0, "audio": 6.5, "decel": None})]) is None
 
 
+def test_shake_and_decel_without_sound_not_enough():
+    # 내 급제동(아차사고)도 흔들림과 급정지가 함께 커진다. 발동은 흔들림 + 소리만.
+    assert estimate_collision([c(5.0, motion=0.9, decel=0.9, peaks={"box": None, "motion": 5.2, "audio": None, "decel": 4.9})]) is None
+
+
 def test_earliest_signal_time_is_collision_t():
-    e = estimate_collision([c(5.0, motion=0.9, decel=0.9, peaks={"box": None, "motion": 5.2, "audio": None, "decel": 4.9})])
-    assert e.t == 4.9 and [f.t for f in e.facts] == [4.9, 5.2]
+    e = estimate_collision([c(5.0, motion=0.9, audio=0.9, decel=0.9,
+                              peaks={"box": None, "motion": 5.2, "audio": 5.3, "decel": 4.9})])
+    assert e.t == 4.9 and [f.t for f in e.facts] == [4.9, 5.2, 5.3]
+    assert e.facts[0].text == "앞차와의 거리가 급히 좁혀진 뒤 멈춤"
+
+
+def test_decel_outside_range_is_not_a_fact():
+    e = estimate_collision([c(5.0, motion=0.9, audio=0.9, decel=0.9,
+                              peaks={"box": None, "motion": 5.2, "audio": 5.3, "decel": 3.0})])
+    assert e.t == 5.2 and {f.text for f in e.facts} == {"화면이 크게 흔들림", "충돌음이 크게 남"}
 
 
 def test_strongest_candidate_wins():

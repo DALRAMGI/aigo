@@ -7,7 +7,7 @@ import pytest
 
 from app.errors import PipelineError
 from app.fault import FaultTable, calculate
-from app.pipeline.assess import (ESTIMATE_PREFIX, NO_CHART, NO_COLLISION, AssessOut, Cite, Pick, SeriousPick, _fault, assess,
+from app.pipeline.assess import (ESTIMATE_PREFIX, NO_CHART, NO_COLLISION, NO_CONTACT, AssessOut, Cite, Pick, SeriousPick, _fault, assess,
                                  has_fault_number)
 from app.pipeline.estimate import Estimate
 from app.pipeline.focus import Keyframe
@@ -358,7 +358,7 @@ def test_fault_carries_chart_laws_and_cases():
     assert f.laws == chart.laws and f.cases == chart.cases
 
 
-SENSOR = Estimate(t=11.8, facts=[Evidence(t=11.8, text="앞차가 급정지함"), Evidence(t=12.1, text="충돌음이 크게 남")])
+SENSOR = Estimate(t=11.8, facts=[Evidence(t=11.8, text="앞차와의 거리가 급히 좁혀진 뒤 멈춤"), Evidence(t=12.1, text="충돌음이 크게 남")])
 NOT_SEEN = {"involvement": "none", "reason": "접촉이 보이지 않습니다", "collision_t": None}
 
 
@@ -368,7 +368,7 @@ def test_estimate_path_when_observation_none():
     assert r.involvement == "party" and r.confidence == "low" and r.collision_t == SENSOR.t and r.reason is None
     assert r.summary.startswith(ESTIMATE_PREFIX) and r.summary == ESTIMATE_PREFIX + "우측 차가 끼어들어 접촉했다."
     assert [(e.t, e.text) for e in r.timeline] == [
-        (11.0, "우측 차가 내 차로로 들어온다"), (11.8, "앞차가 급정지함"), (12.0, "두 차가 접촉한다"),
+        (11.0, "우측 차가 내 차로로 들어온다"), (11.8, "앞차와의 거리가 급히 좁혀진 뒤 멈춤"), (12.0, "두 차가 접촉한다"),
         (12.1, "충돌음이 크게 남"), (12.5, "상대 차가 멈춘다")]
     assert [f.text for f in r.facts] == ["우측 차가 내 차로로 들어온다", "두 차가 접촉한다", "상대 차가 멈춘다"]
     assert '"involvement": "party"' in llm.seen[0][0][1]["content"] and '"collision_t": 11.8' in llm.seen[0][0][1]["content"]
@@ -398,7 +398,8 @@ def test_estimate_without_frame_facts_no_llm():
     llm = FakeLLM()
     r = assess(obs(**NOT_SEEN, facts=[]), FRAMES, TABLE, llm, DURATION, SENSOR)
     assert llm.seen == [] and r.involvement == "party" and r.confidence == "low" and r.collision_t == SENSOR.t
-    assert r.fault is None and r.fault_note == NO_CHART and r.accident_type is None
+    assert r.fault is None and r.fault_note == NO_CONTACT and r.accident_type is None
+    assert r.fault_note == "영상에서 접촉 장면을 확인하지 못해 과실비율을 내지 않았습니다."
     assert r.summary == "충돌 추정: 센서 신호로 충돌을 추정했지만 영상에서 접촉 장면은 확인하지 못했습니다."
     assert r.timeline == SENSOR.facts and r.facts == []
 
@@ -426,13 +427,16 @@ def test_estimate_without_frame_fact_near_it_skips_llm():
     far = Estimate(t=18.0, facts=[Evidence(t=18.0, text="화면이 크게 흔들림"), Evidence(t=18.2, text="충돌음이 크게 남")])
     llm = FakeLLM()
     r = assess(obs(**NOT_SEEN), FRAMES, TABLE, llm, DURATION, far)
-    assert llm.seen == [] and r.fault is None and r.fault_note == NO_CHART and r.collision_t == 18.0
+    assert llm.seen == [] and r.fault is None and r.fault_note == NO_CONTACT and r.collision_t == 18.0
     assert r.summary.startswith(ESTIMATE_PREFIX) and r.timeline == far.facts and r.facts == []
 
 
 def test_estimate_with_other_scene_has_no_fault():
-    r = assess(obs(**NOT_SEEN, scene="other"), FRAMES, TABLE, FakeLLM(out(chart_id=None, me=None, chart_facts=[])), DURATION, SENSOR)
+    # 가짜 모델이 도표를 골라도(근거 사실까지 대도) 추정 경로의 other 장면은 과실을 내지 않는다.
+    llm = FakeLLM(out(chart_id="차43-2", me="A", chart_facts=[0, 1]))
+    r = assess(obs(**NOT_SEEN, scene="other"), FRAMES, TABLE, llm, DURATION, SENSOR)
     assert r.involvement == "party" and r.fault is None and r.fault_note == NO_CHART and r.summary.startswith(ESTIMATE_PREFIX)
+    assert len(llm.seen) == 1 and '"charts": []' in llm.seen[0][0][1]["content"] and '"other_charts": []' in llm.seen[0][0][1]["content"]
 
 
 def _times(r) -> set[float]:

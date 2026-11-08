@@ -18,6 +18,7 @@ NO_CHART = "기준 도표를 찾지 못했습니다."
 NO_COLLISION = "영상에서 충돌 순간을 확인하지 못했습니다."
 ESTIMATE_PREFIX = "충돌 추정: "
 SENSOR_ONLY = ESTIMATE_PREFIX + "센서 신호로 충돌을 추정했지만 영상에서 접촉 장면은 확인하지 못했습니다."
+NO_CONTACT = "영상에서 접촉 장면을 확인하지 못해 과실비율을 내지 않았습니다."
 PERCENT = re.compile(r"\d+\s*%")
 PAIR = re.compile(r"(\d+)\s*:\s*(\d+)")
 SeriousItem = Literal[
@@ -149,7 +150,7 @@ def _sensor_only(o: Observation, estimate: Estimate) -> Report:
     # 프레임 사실이 없으니 판단 모델에 줄 것이 없다. 센서 사실만으로 추정을 보인다.
     return Report(involvement="party", reason=None, accident_type=None, summary=SENSOR_ONLY, collision_t=estimate.t,
                   confidence="low", severity=None, timeline=list(estimate.facts), facts=[], unseen=o.unseen, fault=None,
-                  fault_note=NO_CHART, serious_violations=[], favorable=[], unfavorable=[], actions_now=[], actions_later=[])
+                  fault_note=NO_CONTACT, serious_violations=[], favorable=[], unfavorable=[], actions_now=[], actions_later=[])
 
 
 def assess(observation: Observation, keyframes: list[Keyframe], table: FaultTable, llm, duration: float,
@@ -167,15 +168,17 @@ def assess(observation: Observation, keyframes: list[Keyframe], table: FaultTabl
             return _sensor_only(o, estimate)
         o, collision_t = o.model_copy(update={"involvement": "party"}), estimate.t
     party = o.involvement == "party"
-    charts = table.shortlist(o.scene) if party else []
-    others = [c for c in table.charts if c not in charts] if party else []
+    # 추정 경로에서 장면을 분류하지 못했으면(other) 도표를 맞출 근거가 없어 과실을 내지 않는다.
+    chartable = party and not (reason and o.scene == "other")
+    charts = table.shortlist(o.scene) if chartable else []
+    others = [c for c in table.charts if c not in charts] if chartable else []
 
     def check(out: AssessOut) -> None:
         texts = [out.accident_type or "", out.summary, *out.actions_now, *out.actions_later,
                  *(c.text for c in out.favorable + out.unfavorable)]
         if any(has_fault_number(t) for t in texts):
             raise InvalidOutput("글에 과실 비율이나 퍼센트, 대비 숫자를 쓰지 마라.")
-        if not party or out.chart_id is None:
+        if not chartable or out.chart_id is None:
             return
         if out.chart_id not in {c.id for c in charts}:
             extra = next((c for c in others if c.id == out.chart_id), None)
@@ -204,7 +207,7 @@ def assess(observation: Observation, keyframes: list[Keyframe], table: FaultTabl
         return SeriousViolation(item=p.item, likelihood=p.likelihood if e else "unknown", evidence=e,
                                 party=p.party if e else "unknown")
 
-    supported = party and out.chart_id is not None and any([cite(i) for i in out.chart_facts])
+    supported = chartable and out.chart_id is not None and any([cite(i) for i in out.chart_facts])
     fault = _fault(table.get(out.chart_id), out, cite) if supported else None
     timeline = [e for i in sorted({i for i in out.timeline if i is not None}) if (e := cite(i))]
     violations = [serious(p) for p in out.serious] if party else []
