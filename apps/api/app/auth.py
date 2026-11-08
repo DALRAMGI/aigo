@@ -1,5 +1,8 @@
+from typing import NamedTuple
+
 import httpx
 from clerk_backend_api import Clerk
+from clerk_backend_api.models import ClerkBaseError
 from clerk_backend_api.security import authenticate_request
 from clerk_backend_api.security.types import AuthenticateRequestOptions
 from fastapi import Depends, Request
@@ -63,7 +66,40 @@ def _profile(clerk: Clerk, clerk_user_id: str) -> tuple[str, str]:
 
 # 이 함수는 동기(def)라서 FastAPI가 스레드풀에서 실행한다. 검증과 Clerk 호출이 이벤트 루프를 막지 않는다.
 def current_user(request: Request, db: Session = Depends(get_db), clerk: Clerk = Depends(get_clerk)) -> User:
-    clerk_user_id = _verified_clerk_id(request)
+    return _user_for(_verified_clerk_id(request), db, clerk)
+
+
+class Uploader(NamedTuple):
+    user: User
+    source: str  # "upload"(세션 토큰) 또는 "dashpi"(API Key)
+
+
+def _api_key_clerk_id(secret: str, clerk: Clerk) -> str:
+    try:
+        key = clerk.api_keys.verify_api_key(secret=secret)
+    except ClerkBaseError as e:
+        # 400/404만 키 자체의 문제다. Clerk의 401/403(서버 설정)과 429(요청 제한)는 Pi 키 탓이 아니다.
+        if e.status_code in (400, 404):
+            raise _unauthorized() from e
+        raise _clerk_down() from e
+    except Exception as e:
+        raise _clerk_down() from e
+    subject = getattr(key, "subject", "") or ""
+    if not subject.startswith("user_") or key.revoked or key.expired:
+        raise _unauthorized()
+    return subject
+
+
+def current_uploader(request: Request, db: Session = Depends(get_db), clerk: Clerk = Depends(get_clerk)) -> Uploader:
+    """분석 생성·제출 전용. 세션 토큰에 더해 DashPi의 Clerk API Key(ak_)를 받는다. 다른 라우트는 current_user만 쓴다."""
+    header = request.headers.get("authorization") or ""
+    scheme, _, token = header.partition(" ")
+    if scheme.lower() == "bearer" and token.startswith("ak_"):
+        return Uploader(_user_for(_api_key_clerk_id(token, clerk), db, clerk), "dashpi")
+    return Uploader(current_user(request, db, clerk), "upload")
+
+
+def _user_for(clerk_user_id: str, db: Session, clerk: Clerk) -> User:
     user = db.scalar(select(User).where(User.clerk_user_id == clerk_user_id))
     if user:
         return user

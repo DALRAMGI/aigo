@@ -112,6 +112,8 @@ class Analysis(Base):
         _enum(AnalysisStatus, "analysis_status"), default=AnalysisStatus.created
     )
     stage: Mapped[Stage | None] = mapped_column(_enum(Stage, "analysis_stage"))
+    # 어디서 올렸는지. 세션 토큰은 upload, DashPi API Key는 dashpi. 인증 방식으로 정한다.
+    source: Mapped[str] = mapped_column(String(10), default="upload", server_default="upload")
     source_key: Mapped[str | None] = mapped_column(String(300))
     playback_key: Mapped[str | None] = mapped_column(String(300))
     source_size: Mapped[int | None] = mapped_column(BigInteger)  # 클라이언트가 알린 업로드 크기

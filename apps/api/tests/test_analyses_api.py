@@ -305,3 +305,8 @@ def test_create_stores_trim_and_allows_exact_limit(client, db):
     assert (a.trim_start, a.trim_end) == (30.5, 30.5 + settings.max_video_seconds)
     b = db.get(Analysis, create(client).json()["id"])
     assert b.trim_start is None and b.trim_end is None
+
+
+def test_session_upload_source_is_upload(client):
+    aid = client.post(P, json=BODY, headers=auth()).json()["id"]
+    assert client.get(f"{P}/{aid}", headers=auth()).json()["source"] == "upload"

@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import quota
-from app.auth import current_user
+from app.auth import Uploader, current_uploader, current_user
 from app.config import settings
 from app.db import get_db
 from app.errors import ApiError
@@ -45,6 +45,7 @@ class AnalysisError(BaseModel):
 
 class AnalysisOut(BaseModel):
     id: int
+    source: str
     status: str
     stage: str | None
     progress: list[StageOut]
@@ -86,7 +87,7 @@ def _progress(a: Analysis) -> list[dict]:
 def _out(a: Analysis, storage: Storage) -> dict:
     done = a.status == AnalysisStatus.done
     return {
-        "id": a.id, "status": a.status.value, "stage": a.stage.value if a.stage else None,
+        "id": a.id, "source": a.source, "status": a.status.value, "stage": a.stage.value if a.stage else None,
         "progress": _progress(a),
         "report": a.report if done else None,
         "playback_url": storage.presign_get(a.playback_key) if done and a.playback_key else None,
@@ -112,8 +113,9 @@ def _check_trim(start: float | None, end: float | None) -> None:
 
 
 @router.post("/analyses", status_code=201, response_model=UploadTicket)
-def create_analysis(body: AnalysisIn, user: User = Depends(current_user), db: Session = Depends(get_db),
+def create_analysis(body: AnalysisIn, uploader: Uploader = Depends(current_uploader), db: Session = Depends(get_db),
                     storage: Storage = Depends(get_storage)):
+    user = uploader.user
     if not body.consent:
         raise ApiError(400, "CONSENT_REQUIRED", "영상 분석에 동의해야 업로드할 수 있습니다.")
     _check_trim(body.trim_start, body.trim_end)
@@ -125,7 +127,7 @@ def create_analysis(body: AnalysisIn, user: User = Depends(current_user), db: Se
     try:
         now = quota._now()
         quota.reserve_analysis(db, user, now)
-        a = Analysis(user_id=user.id, created_at=now, consent_at=now, source_size=body.size,
+        a = Analysis(user_id=user.id, source=uploader.source, created_at=now, consent_at=now, source_size=body.size,
                      trim_start=body.trim_start, trim_end=body.trim_end)
         db.add(a)
         db.flush()
@@ -140,9 +142,9 @@ def create_analysis(body: AnalysisIn, user: User = Depends(current_user), db: Se
 
 
 @router.post("/analyses/{analysis_id}/submit", response_model=AnalysisOut)
-def submit_analysis(analysis_id: int, user: User = Depends(current_user), db: Session = Depends(get_db),
+def submit_analysis(analysis_id: int, uploader: Uploader = Depends(current_uploader), db: Session = Depends(get_db),
                     storage: Storage = Depends(get_storage)):
-    a = _mine(db, user, analysis_id, lock=True)
+    a = _mine(db, uploader.user, analysis_id, lock=True)
     if a.status == AnalysisStatus.created:
         if storage.head(a.source_key) != a.source_size:
             db.rollback()

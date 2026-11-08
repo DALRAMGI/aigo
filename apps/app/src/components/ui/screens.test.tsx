@@ -27,3 +27,10 @@ test('최근 분석은 앞의 3개만 보이고 전체 보기로 목록에 간�
   await fireEvent.press(screen.getByText('전체 보기'));
   expect(mockPush).toHaveBeenCalledWith('/analyses');
 });
+
+test('DashPi에서 온 분석 행에만 DashPi 칩이 있다', async () => {
+  await render(<AnalysisRow a={{ ...done(1), source: 'dashpi' }} onPress={jest.fn()} />);
+  expect(screen.getByText('DashPi')).toBeTruthy();
+  await render(<AnalysisRow a={{ ...done(2), source: 'upload' }} onPress={jest.fn()} />);
+  expect(screen.queryByText('DashPi')).toBeNull();
+});

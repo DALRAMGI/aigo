@@ -6,7 +6,7 @@ export { Card } from './Card';
 export { HeroCard } from './HeroCard';
 export { StatTile } from './StatTile';
 export { ListRow } from './ListRow';
-export { StatusChip, TimeChip, statusTone, type Tone } from './Chips';
+export { SourceChip, StatusChip, TimeChip, statusTone, type Tone } from './Chips';
 export { TextField } from './TextField';
 export { CodeInput } from './CodeInput';
 export { ConsentSwitch } from './ConsentSwitch';

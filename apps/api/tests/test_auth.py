@@ -144,3 +144,78 @@ def test_delete_me_clerk_failure_503(client, fake_clerk, user):
     fake_clerk.fail_delete = True
     r = client.delete("/api/v1/me", headers=auth(user.clerk_user_id))
     assert r.status_code == 503 and r.json()["code"] == "AUTH_PROVIDER_UNAVAILABLE"
+
+
+# DashPi API Key: 분석 생성·제출에서만 받는다.
+from types import SimpleNamespace  # noqa: E402
+
+import httpx  # noqa: E402
+from clerk_backend_api.models import ClerkBaseError  # noqa: E402
+
+AK = {"Authorization": "Bearer ak_test_123"}
+UPLOAD = {"filename": "clip.mp4", "size": 1000, "consent": True}
+
+
+def _clerk_error(status: int) -> ClerkBaseError:
+    return ClerkBaseError("x", httpx.Response(status, request=httpx.Request("POST", "https://api.clerk.com")))
+
+
+def test_api_key_creates_dashpi_analysis(client, db, fake_clerk):
+    r = client.post("/api/v1/analyses", json=UPLOAD, headers=AK)
+    assert r.status_code == 201
+    a = db.get(Analysis, r.json()["id"])
+    assert a.source == "dashpi"
+    assert db.get(User, a.user_id).clerk_user_id == "user_pi"
+    assert fake_clerk.verified == ["ak_test_123"]
+
+
+def test_api_key_can_submit_its_upload(client, storage):
+    aid = client.post("/api/v1/analyses", json=UPLOAD, headers=AK).json()["id"]
+    storage.s3.put_object(Bucket=storage.bucket, Key=f"analyses/{aid}/source.mp4", Body=b"x" * 1000)
+    r = client.post(f"/api/v1/analyses/{aid}/submit", headers=AK)
+    assert r.status_code == 200 and r.json()["status"] == "queued" and r.json()["source"] == "dashpi"
+
+
+def test_session_token_upload_stays_upload(client, db):
+    r = client.post("/api/v1/analyses", json=UPLOAD, headers=auth())
+    assert db.get(Analysis, r.json()["id"]).source == "upload"
+
+
+@pytest.mark.parametrize("result", [
+    SimpleNamespace(subject="org_1", revoked=False, expired=False),
+    SimpleNamespace(subject="user_pi", revoked=True, expired=False),
+    SimpleNamespace(subject="user_pi", revoked=False, expired=True),
+])
+def test_api_key_rejected(client, fake_clerk, result):
+    fake_clerk.api_keys_result = result
+    assert_401(client.post("/api/v1/analyses", json=UPLOAD, headers=AK))
+
+
+def test_api_key_verify_4xx_is_401(client, fake_clerk):
+    fake_clerk.api_keys_error = _clerk_error(404)
+    assert_401(client.post("/api/v1/analyses", json=UPLOAD, headers=AK))
+
+
+@pytest.mark.parametrize("error", [RuntimeError("down"), _clerk_error(502)])
+def test_api_key_provider_down_is_503(client, fake_clerk, error):
+    fake_clerk.api_keys_error = error
+    r = client.post("/api/v1/analyses", json=UPLOAD, headers=AK)
+    assert r.status_code == 503 and r.json()["code"] == "AUTH_PROVIDER_UNAVAILABLE"
+
+
+@pytest.mark.parametrize("method,path", [
+    ("get", "/api/v1/me"), ("delete", "/api/v1/me"), ("get", "/api/v1/analyses"),
+    ("get", "/api/v1/analyses/1"), ("delete", "/api/v1/analyses/1"),
+    ("post", "/api/v1/devices"), ("get", "/api/v1/orders"), ("post", "/api/v1/orders"),
+])
+def test_api_key_only_on_upload_routes(client, fake_clerk, method, path):
+    r = client.request(method, path, headers=AK, json={})
+    assert_401(r)
+    assert fake_clerk.verified == []
+
+
+@pytest.mark.parametrize("status", [401, 403, 429])
+def test_clerk_side_errors_are_503_not_key_errors(client, fake_clerk, status):
+    fake_clerk.api_keys_error = _clerk_error(status)
+    r = client.post("/api/v1/analyses", json=UPLOAD, headers=AK)
+    assert r.status_code == 503 and r.json()["code"] == "AUTH_PROVIDER_UNAVAILABLE"

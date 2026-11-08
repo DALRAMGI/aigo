@@ -11,6 +11,7 @@ import { FaultBreakdown, FaultGauge, faultRange } from "./FaultBreakdown";
 import { DISCLAIMER, LEVEL, type Analysis, type Evidence, type Report, type Seek } from "./types";
 import { VideoOverlay } from "./VideoOverlay";
 import { ViolationList } from "./ViolationList";
+import { SourceBadge } from "./SourceBadge";
 
 const NO_SCENE = "이 영상에서 사고 장면을 확인하지 못했습니다";
 const SPLIT = "cells md:auto-cols-[minmax(0,1fr)] md:grid-flow-col"; // 항목이 하나만 있어도 빈 칸이 남지 않는다
@@ -164,6 +165,7 @@ export function ReportView({ analysis, onReload }: { analysis: Analysis; onReloa
         {printHead}
         {disclaimer}
         <header className="flex flex-col gap-3 border-t border-line p-5 md:p-10">
+          <SourceBadge source={analysis.source} />
           <h1 className="max-w-4xl text-3xl leading-tight font-bold tracking-[-0.02em] text-ink-strong md:text-5xl">{NO_SCENE}</h1>
           <p className="max-w-3xl text-lg">{report.reason}</p>
           <p className="max-w-3xl text-muted">분석이 실제 충돌을 놓쳤을 수 있습니다. 아래 영상을 직접 확인해 주세요.</p>
@@ -237,7 +239,10 @@ export function ReportView({ analysis, onReload }: { analysis: Analysis; onReloa
         <div className="cells lg:grid-cols-[minmax(0,1fr)_28rem]">
           <header className="flex flex-col gap-4 p-5 md:p-10">
             <div className="flex items-center justify-between gap-3">
-              <Badge tone="accent">{report.involvement === "party" ? "내 차 사고" : "제3자 사고"}</Badge>
+              <span className="flex flex-wrap items-center gap-3">
+                <Badge tone="accent">{report.involvement === "party" ? "내 차 사고" : "제3자 사고"}</Badge>
+                <SourceBadge source={analysis.source} />
+              </span>
               <Button size="sm" variant="secondary" className="print:hidden" onClick={() => window.print()}>
                 PDF로 저장
               </Button>

@@ -105,6 +105,7 @@ const STAGES: Analysis["progress"] = [
 
 export const analysis = (over: Partial<Analysis> = {}): Analysis => ({
   id: 12,
+  source: "upload",
   status: "processing",
   stage: null,
   progress: [],

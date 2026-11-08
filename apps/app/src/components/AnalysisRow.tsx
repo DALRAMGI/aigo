@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { Pressable, View } from 'react-native';
-import { Card, Icon, ListRow, StatusChip, statusTone } from '@/components/ui';
+import { Card, Icon, ListRow, SourceChip, StatusChip, statusTone } from '@/components/ui';
 import { STATUS_LABEL, analysisTitle, faultRange, seoulDate, type Analysis } from '@/lib/analysis';
 import { color, radius } from '@/theme';
 
@@ -19,6 +19,7 @@ export function AnalysisRow({ a, onPress, onDelete }: { a: Analysis; onPress: ()
       onPress={onPress}
       trailing={
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <SourceChip source={a.source} />
           <StatusChip tone={statusTone(a.status)} label={STATUS_LABEL[a.status] ?? STATUS_LABEL.processing} />
           {onDelete ? (
             <Pressable accessibilityRole="button" accessibilityLabel={`분석 #${a.id} 삭제`} onPress={onDelete} hitSlop={8}>

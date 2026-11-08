@@ -569,3 +569,25 @@ test("판례 url이 법제처 판례가 아니면(도표 출처) 글로 두고 �
   const sources = screen.getAllByRole("link", { name: "출처: 과실비율정보포털" }).filter((a) => a.getAttribute("href") === src);
   expect(sources.length).toBe(1);
 });
+
+test("DashPi에서 온 분석만 목록에 DashPi 배지를 단다", () => {
+  render(<AnalysisList items={[analysis({ id: 1, source: "dashpi" }), analysis({ id: 2 })]} />);
+  const rows = screen.getAllByRole("listitem");
+  expect(within(rows[0]).getByText("DashPi")).toBeTruthy();
+  expect(within(rows[1]).queryByText("DashPi")).toBeNull();
+});
+
+test("DashPi 분석은 진행 화면과 레포트에도 배지가 있다", () => {
+  const { unmount } = render(<ProgressView analysis={{ ...running(2), source: "dashpi" }} />);
+  expect(screen.getByText("DashPi")).toBeTruthy();
+  unmount();
+  fetchMock.mockResolvedValue(json(200, OVERLAY));
+  render(<ReportView analysis={{ ...finished(PARTY), source: "dashpi" }} />);
+  expect(screen.getByText("DashPi")).toBeTruthy();
+});
+
+test("직접 올린 분석의 레포트에는 DashPi 배지가 없다", () => {
+  fetchMock.mockResolvedValue(json(200, OVERLAY));
+  render(<ReportView analysis={finished(PARTY)} />);
+  expect(screen.queryByText("DashPi")).toBeNull();
+});
