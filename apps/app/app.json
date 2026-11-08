@@ -2,7 +2,7 @@
   "expo": {
     "name": "AIGO",
     "slug": "aigo",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "orientation": "portrait",
     "icon": "./assets/brand/icon-dark.png",
     "userInterfaceStyle": "light",
@@ -18,7 +18,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.jcmaker.aigo",
-      "versionCode": 3,
+      "versionCode": 4,
       "allowBackup": false
     },
     "web": {
