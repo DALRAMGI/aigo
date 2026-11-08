@@ -1,4 +1,5 @@
 // ui 묶음이 analysis.ts를 거쳐 Clerk를 불러오고, Clerk는 타이머를 남긴다.
+jest.mock('react-native-safe-area-context', () => require('react-native-safe-area-context/jest/mock').default); // Screen이 안전 영역을 읽는다.
 jest.mock('@clerk/expo', () => ({ useAuth: jest.fn() }));
 
 import { fireEvent, render, screen } from '@testing-library/react-native';

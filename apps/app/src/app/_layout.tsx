@@ -43,7 +43,7 @@ function Routes() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="scene" />
-      <Stack.Screen name="share" options={{ headerShown: true, title: '공유받은 영상' }} />
+      <Stack.Screen name="share" />
       <Stack.Protected guard={isLoaded && !!isSignedIn}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="analyses/[id]" options={{ headerShown: true }} />

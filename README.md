@@ -77,6 +77,14 @@ npx expo start --dev-client
 
 네이티브 패키지를 추가한 뒤에는 `rm -rf android`로 지우고 다시 빌드합니다. 그대로 빌드하면 새 모듈이 빠질 수 있습니다.
 
+디자인 시스템은 두 곳에 있습니다. 색, 간격, 모서리, 글자 크기는 `src/theme.ts`에, 버튼, 카드, 입력칸, 하단 메뉴 같은 공용 부품은 `src/components/ui/`에 있습니다. 화면은 이 둘만 가져다 쓰고 색 값을 직접 적지 않습니다.
+
+로고, 앱 아이콘, 스플래시 이미지는 `assets/brand/source`의 원본 PNG에서 만듭니다. 원본을 바꾸면 다시 만들고, 그 뒤 `rm -rf android`로 네이티브를 다시 빌드합니다.
+
+```bash
+cd apps/app && uv run --with numpy --with pillow python -I scripts/brand.py
+```
+
 ## 테스트
 
 ```bash

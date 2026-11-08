@@ -17,19 +17,22 @@ const run = (v: Animated.Value, to: number, duration: number, delay: number, eas
   Animated.timing(v, { toValue: to, duration, delay, easing, useNativeDriver: native });
 
 // 진입 모션 "길 그리기": A(0~0.45s) → 길(0.3~1.0s) → 별(1.0~1.4s), 글자 1.05s부터.
-export function Splash({ onDone }: { onDone: () => void }) {
-  const a = useRef(new Animated.Value(0)).current;
-  const road = useRef(new Animated.Value(0)).current;
-  const star = useRef(new Animated.Value(0)).current;
-  const word = useRef(new Animated.Value(0)).current;
+// still이면 모션 없이 마지막 장면만 그린다(이미 한 번 재생한 뒤 index가 다시 마운트될 때).
+export function Splash({ onDone, still = false }: { onDone?: () => void; still?: boolean }) {
+  const from = still ? 1 : 0;
+  const a = useRef(new Animated.Value(from)).current;
+  const road = useRef(new Animated.Value(from)).current;
+  const star = useRef(new Animated.Value(from)).current;
+  const word = useRef(new Animated.Value(from)).current;
 
   // 부모가 매번 새 함수를 넘겨도 모션이 다시 시작되지 않도록 최신 콜백만 ref로 들고 있다.
   const cb = useRef(onDone);
   cb.current = onDone;
 
   useEffect(() => {
+    if (still) return;
     // 완료 시점은 애니메이션 콜백이 아니라 타이머로 정한다(결정적이고 테스트하기 쉽다).
-    const t = setTimeout(() => cb.current(), TOTAL);
+    const t = setTimeout(() => cb.current?.(), TOTAL);
     const anim = Animated.parallel([
       run(a, 1, 450, 0, Easing.out(Easing.quad)),
       run(road, 1, 700, 300, Easing.bezier(0.6, 0, 0.2, 1), false), // 너비는 네이티브 드라이버를 못 쓴다
@@ -38,7 +41,7 @@ export function Splash({ onDone }: { onDone: () => void }) {
     ]);
     anim.start();
     return () => { clearTimeout(t); anim.stop(); };
-  }, [a, road, star, word]);
+  }, [a, road, star, word, still]);
 
   const rise = (v: Animated.Value) => ({
     opacity: v,

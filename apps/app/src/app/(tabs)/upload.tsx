@@ -128,7 +128,8 @@ export default function UploadScreen() {
       // 제출이 끝났으니 내 영상과 attempt를 비운다(미뤄 둔 영상이 있으면 그 영상을 연다).
       settle(true, a.uri);
       setPhase('idle');
-      router.replace(`/analyses/${id}`);
+      // 탭 묶음 위에 쌓는다. replace하면 (tabs)가 통째로 바뀌어 뒤로가기에 앱이 닫힌다.
+      router.push(`/analyses/${id}`);
     } catch (e) {
       if (abort.current.signal.aborted) return; // 화면을 떠났다.
       const err = e instanceof ApiFailure ? e : new ApiFailure(0, 'UPLOAD_FAILED', '영상을 올리지 못했습니다. 다시 시도해 주세요.');

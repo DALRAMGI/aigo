@@ -2,13 +2,18 @@ import { useRouter } from 'expo-router';
 import { Pressable, View } from 'react-native';
 import { Card, Icon, ListRow, StatusChip, statusTone } from '@/components/ui';
 import { STATUS_LABEL, analysisTitle, faultRange, seoulDate, type Analysis } from '@/lib/analysis';
-import { color } from '@/theme';
+import { color, radius } from '@/theme';
 
 // 내 분석 목록과 홈이 같이 쓰는 분석 한 줄
 export function AnalysisRow({ a, onPress, onDelete }: { a: Analysis; onPress: () => void; onDelete?: () => void }) {
   const fault = a.report?.fault ? ` · 내 과실 ${faultRange(a.report.fault)}` : '';
   return (
     <ListRow
+      leading={
+        <View style={{ width: 44, height: 44, borderRadius: radius.icon, backgroundColor: color.gray3, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="video" size={20} color={color.gray9} />
+        </View>
+      }
       title={analysisTitle(a)}
       subtitle={`#${a.id} · ${seoulDate(a.created_at)}${fault}`}
       onPress={onPress}
