@@ -1,11 +1,11 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
 from app.pipeline.scan import TrackPoint
 
 # 평가로 조정하는 값. 바꾸면 사고영상 평가를 다시 돌린다.
-WEIGHTS = {"box": 0.5, "motion": 0.3, "audio": 0.2}
+WEIGHTS = {"box": 0.4, "motion": 0.25, "audio": 0.15, "decel": 0.2}  # 초기값, Task 7에서 조정
 MIN_SCORE = 0.3  # 0.5면 사고영상 29개 중 6개가 후보 없음이 된다. 오탐은 관찰 단계가 프레임을 보고 거른다.
 MERGE_S = 2.0
 STEP_S = 0.2  # 스캔 간격(초당 5장)
@@ -18,6 +18,11 @@ BOX_MAD_K = 6.0
 MOTION_MAD_FLOOR = 1.0  # 잔잔한 영상의 미세한 흔들림이 1.0이 되지 않게 하는 하한(160px 흑백 차이)
 AUDIO_MAD_FLOOR = 0.01
 BOX_MAD_FLOOR = 0.05
+# 급정지(접근 속도 감소, 위험도/초)는 실제 영상에서 거의 늘 0이라 MAD도 0이다. 하한이 척도를 정한다: 0.2/초에서 1.0.
+# 사고 영상 충돌 직후 급정지 0.13~0.2(ChYn, Hw8K, CRcR), 무사고 영상 잡음은 0.07 이하(초안 정답 기준).
+# K 3~10을 훑었을 때 1초 이내 후보 수는 13~14로 비슷했고, 4가 잡음을 0.35 이하로 두면서 충돌을 0.65 이상으로 올린다.
+DECEL_MAD_K = 4.0
+DECEL_MAD_FLOOR = 0.05
 BOX_WINDOW_S = 0.6  # 이 구간에서 위험도가 얼마나 빨리 올랐나를 잰다.
 SHORT_TRACK_POINTS = 5  # 이보다 짧으면서 신뢰도도 낮은 트랙은 건물이나 보닛 오탐이다. 진짜 끼어들기는 짧아도 신뢰도가 높다.
 SHORT_TRACK_CONF = 0.5
@@ -41,6 +46,7 @@ class Candidate:
     t: float
     score: float
     signals: dict[str, float]
+    peaks: dict[str, float | None] = field(default_factory=dict)  # 신호별로 후보 ±ALIGN_S 안에서 원래 값이 가장 큰 시각
 
 
 def _on_grid(samples, n: int) -> np.ndarray:
@@ -111,6 +117,25 @@ def _box_rate(tracks, width: float, height: float, n: int) -> np.ndarray:
     return out
 
 
+def _decel(tracks, width: float, height: float, n: int) -> np.ndarray:
+    """상대 차 급정지: 접근 속도(위험도의 시간 미분)가 BOX_WINDOW_S 안에서 줄어든 양의 시각별 최댓값.
+
+    앞에서 빠르게 다가오던 만큼만 줄어들 수 있어서(멀어지는 속도는 0으로 친다) 원래 멈춰 있던 차나 멀어지는 차는 작다.
+    """
+    out = np.zeros(n)
+    for ps in tracks.values():
+        if len(ps) < SHORT_TRACK_POINTS or ps[0].cls in NOT_VEHICLE:
+            continue
+        risk = [_risk(p, width, height) for p in ps]
+        speed = [(ps[i].t, max(0.0, (risk[i] - risk[i - 1]) / (ps[i].t - ps[i - 1].t))) for i in range(1, len(ps))]
+        for i, (t, v) in enumerate(speed):
+            before = [u for s, u in speed[:i] if t - s <= BOX_WINDOW_S]
+            if before:
+                k = min(round(t / STEP_S), n - 1)
+                out[k] = max(out[k], max(before) - v)
+    return out
+
+
 def _audio_series(audio, n: int) -> np.ndarray | None:
     if not audio:
         return None
@@ -121,6 +146,16 @@ def _audio_series(audio, n: int) -> np.ndarray | None:
     if np.median(env) > MUSIC_RATIO * env.max() and np.mean(env > MUSIC_LOUD_LEVEL * env.max()) > MUSIC_LOUD_SHARE:
         return None
     return _normalized(_sudden(_on_grid(audio, n)), AUDIO_MAD_K, AUDIO_MAD_FLOOR)
+
+
+def _peak_t(x: np.ndarray | None, i: int) -> float | None:
+    """i ±ALIGN_S 안에서 번지기 전 값이 가장 큰 시각. 신호가 없으면 None."""
+    if x is None:
+        return None
+    r = round(ALIGN_S / STEP_S)
+    lo = max(0, i - r)
+    j = lo + int(np.argmax(x[lo:i + r + 1]))
+    return round(float(j * STEP_S), 6) if x[j] > 0 else None
 
 
 def find_candidates(tracks, frame_area, motion, audio, max_candidates=3, aspect=16 / 9,
@@ -134,8 +169,10 @@ def find_candidates(tracks, frame_area, motion, audio, max_candidates=3, aspect=
     height = frame_area / width
 
     # ponytail: 편집으로 이어 붙인 영상의 장면 전환도 모션 급변으로 잡힌다. 오탐이 문제되면 장면 전환 판별을 넣는다.
-    peaks = {"box": _normalized(_box_rate(drop_hood(tracks, height), width, height, n), BOX_MAD_K, BOX_MAD_FLOOR),
-              "motion": _normalized(_sudden(_on_grid(motion, n)), MOTION_MAD_K, MOTION_MAD_FLOOR)}
+    cars = drop_hood(tracks, height)
+    peaks = {"box": _normalized(_box_rate(cars, width, height, n), BOX_MAD_K, BOX_MAD_FLOOR),
+              "motion": _normalized(_sudden(_on_grid(motion, n)), MOTION_MAD_K, MOTION_MAD_FLOOR),
+              "decel": _normalized(_sudden(_decel(cars, width, height, n)), DECEL_MAD_K, DECEL_MAD_FLOOR)}
     sound = _audio_series(audio, n)
     if sound is not None:
         peaks["audio"] = sound
@@ -156,5 +193,5 @@ def find_candidates(tracks, frame_area, motion, audio, max_candidates=3, aspect=
         t = round(float(i) * STEP_S, 6)
         if all(abs(c.t - t) > MERGE_S for c in picked):
             signals = {k: round(float(series[k][i]) if k in series else 0.0, 3) for k in WEIGHTS}
-            picked.append(Candidate(t, round(float(score[i]), 3), signals))
+            picked.append(Candidate(t, round(float(score[i]), 3), signals, {k: _peak_t(peaks.get(k), i) for k in WEIGHTS}))
     return picked
