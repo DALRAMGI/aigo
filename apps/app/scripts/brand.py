@@ -54,7 +54,12 @@ def place(im, box, size, ratio):
 
 
 # 아이콘, 가로 로고 다크 변형
-img(recolor("icon.png", INK, GREEN, PAPER)).save(ROOT / "icon-dark.png")
+# 앱 아이콘은 OS가 마스크를 씌우므로 둥근 사각형 영역으로 잘라 INK로 꽉 채운 1024 RGB로 만든다.
+ic = img(recolor("icon.png", INK, GREEN, PAPER))
+ic = ic.crop(ic.getchannel("A").point(lambda v: 255 if v > 128 else 0).getbbox())
+flat = Image.new("RGBA", ic.size, INK)
+flat.alpha_composite(ic)
+flat.convert("RGB").resize((1024, 1024), Image.LANCZOS).save(ROOT / "icon-dark.png")
 img(recolor("wordmark.png", INK, GREEN, PAPER)).save(ROOT / "wordmark-dark.png")
 
 # 글자만 흰색으로 (x 700 이후, 알파 128 초과 행/열로 다시 자름)
