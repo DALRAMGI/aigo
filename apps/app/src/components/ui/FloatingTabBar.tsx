@@ -1,7 +1,6 @@
 import type { BottomTabBarProps } from 'expo-router/build/layouts/Tabs';
 import { useEffect, useRef } from 'react';
 import { Animated, Pressable, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { color } from '@/theme';
 import { Icon, type IconName } from './Icon';
 
@@ -16,8 +15,7 @@ export const TAB_ITEMS: { route: 'home' | 'analyses' | 'upload' | 'emergency' | 
 const CELL = 46;
 const PAD = 7;
 
-export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
-  const insets = useSafeAreaInsets();
+export function FloatingTabBar({ state, emitter, navigateToTab, insets }: BottomTabBarProps) {
   const x = useRef(new Animated.Value(state.index * CELL)).current;
   useEffect(() => {
     Animated.spring(x, { toValue: state.index * CELL, useNativeDriver: true }).start();
@@ -45,8 +43,8 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
           if (!item) return null;
           const selected = state.index === i;
           const onPress = () => {
-            const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-            if (!selected && !event.defaultPrevented) navigation.navigate(route.name);
+            const event = emitter.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+            if (!selected && !event.defaultPrevented) navigateToTab(route.key);
           };
           const tint = selected ? color.ink : item.route === 'emergency' ? color.sceneIcon : color.white;
           return (
