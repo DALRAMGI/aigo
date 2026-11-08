@@ -8,6 +8,7 @@ from app.fault import Chart, FaultTable, calculate
 from app.llm import InvalidOutput, ask
 from app.pipeline.estimate import Estimate
 from app.pipeline.focus import Keyframe
+from app.pipeline.locate import ALIGN_S
 from app.pipeline.observe import NEAR_FRAME_S, Fact, Observation, near_frame
 from app.report import Evidence, FaultAssessment, FaultStep, Report, SeriousViolation, confidence
 
@@ -147,7 +148,7 @@ def _unconfirmed(o: Observation, facts: list[Fact], duration: float) -> str | No
 def _sensor_only(o: Observation, estimate: Estimate) -> Report:
     # 프레임 사실이 없으니 판단 모델에 줄 것이 없다. 센서 사실만으로 추정을 보인다.
     return Report(involvement="party", reason=None, accident_type=None, summary=SENSOR_ONLY, collision_t=estimate.t,
-                  confidence="low", severity=None, timeline=estimate.facts, facts=[], unseen=o.unseen, fault=None,
+                  confidence="low", severity=None, timeline=list(estimate.facts), facts=[], unseen=o.unseen, fault=None,
                   fault_note=NO_CHART, serious_violations=[], favorable=[], unfavorable=[], actions_now=[], actions_later=[])
 
 
@@ -157,11 +158,12 @@ def assess(observation: Observation, keyframes: list[Keyframe], table: FaultTabl
     facts = sorted((f for f in o.facts if 0 <= f.t <= duration and near_frame(f.t, keyframes)), key=lambda f: f.t)
     collision_t = o.collision_t
     reason = _unconfirmed(o, facts, duration)
-    if reason and estimate is None:
+    if reason and (estimate is None or o.involvement == "witness"):  # 남의 사고를 당사자로 바꾸지 않는다.
         return _none(reason)
     if reason:
         # 센서 추정: 흔들림이 필수라 촬영 차가 당사자다. 충돌 시각 곁 사실 검사는 발동 조건이 대신한다.
-        if not facts:
+        # 추정 시각 곁에 프레임 사실이 없으면 모델이 볼 장면이 없으니 부르지 않는다.
+        if not any(abs(f.t - estimate.t) <= ALIGN_S + NEAR_FRAME_S for f in facts):
             return _sensor_only(o, estimate)
         o, collision_t = o.model_copy(update={"involvement": "party"}), estimate.t
     party = o.involvement == "party"

@@ -6,11 +6,9 @@ import pytest
 from app.fault import FaultTable
 from app.pipeline import run as run_mod
 from app.pipeline.assess import AssessOut
-from app.pipeline.estimate import Estimate
 from app.pipeline.observe import Fact, Observation
 from app.pipeline.run import PIPELINE_VERSION, Context, run_pipeline
 from app.pipeline.scan import ScanResult, TrackPoint
-from app.report import Evidence
 from tests.fixtures import make_clips as mk
 from tests.fixtures.fake_llm import FakeLLM
 
@@ -20,7 +18,7 @@ STAGES = ["normalize", "scan", "locate", "focus", "observe", "assess"]
 
 @pytest.fixture(scope="module")
 def clip_with_motion(tmp_path_factory):
-    return mk.flash(tmp_path_factory.mktemp("clip") / "motion.mp4")
+    return mk.flash(tmp_path_factory.mktemp("clip") / "motion.mp4", bang=True)  # 흔들림과 소리가 같이 있어야 후보가 된다.
 
 
 @pytest.fixture(scope="module")
@@ -205,16 +203,26 @@ def test_no_tracks_with_candidates_stays_low(clip_with_motion, tmp_path):
 
 
 def test_run_pipeline_passes_estimate(clip_with_motion, tmp_path, monkeypatch):
-    seen = []
-    est = Estimate(2.9, [Evidence(t=2.9, text="화면이 크게 흔들림"), Evidence(t=3.1, text="충돌음이 크게 남")])
-    monkeypatch.setattr(run_mod, "estimate_collision", lambda cands: seen.append(cands) or est)
+    # 실제 흔들림·소리 신호에 트랙 하나만 얹는다. 관찰이 접촉을 못 봐도 센서 추정이 레포트를 낸다.
+    real = run_mod.scan
+    track = {1: [TrackPoint(1.0, (100.0, 60.0, 140.0, 90.0), "car", 0.9)]}
+    monkeypatch.setattr(run_mod, "scan", lambda frames: ScanResult(track, real(frames).motion))
     llm = FakeLLM(observation(t=None, involvement="none", reason="접촉이 보이지 않습니다"))
     ctx, _ = context(tmp_path, clip_with_motion, llm)
     res = run_pipeline(ctx)
-    assert seen and [c.t for c in seen[0]] == [c["t"] for c in res.trace["candidates"]]
-    assert res.report.involvement == "party" and res.report.collision_t == 2.9 and res.report.summary.startswith("충돌 추정: ")
-    assert res.trace["estimate"] == {"t": 2.9, "facts": [{"t": 2.9, "text": "화면이 크게 흔들림"},
-                                                         {"t": 3.1, "text": "충돌음이 크게 남"}]}
+    assert res.trace["candidates"] and res.trace["candidates"][0]["t"] == 3.0
+    assert res.trace["estimate"] == {"t": 3.0, "facts": [{"t": 3.0, "text": "화면이 크게 흔들림"},
+                                                         {"t": 3.0, "text": "충돌음이 크게 남"}]}
+    assert res.report.involvement == "party" and res.report.collision_t == 3.0 and res.report.summary.startswith("충돌 추정: ")
+    assert res.report.confidence == "low" and llm.responses == []
+
+
+def test_no_tracks_means_no_estimate(clip_with_motion, tmp_path):
+    llm = FakeLLM(observation(t=None, involvement="none", reason="접촉이 보이지 않습니다"))
+    ctx, _ = context(tmp_path, clip_with_motion, llm)
+    res = run_pipeline(ctx)
+    assert res.trace["candidates"] and res.trace["track_count"] == 0
+    assert res.trace["estimate"] is None and res.report.involvement == "none"
 
 
 def test_no_candidates_leaves_no_estimate(clip_blank, tmp_path):

@@ -114,7 +114,8 @@ def run_pipeline(ctx: Context) -> PipelineResult:
         d.update(frames=len(keyframes), extra_focus=extra_focus)
 
     with stage("assess") as d:
-        estimate = estimate_collision(candidates)  # 관찰이 접촉을 못 봤을 때만 assess가 쓴다.
+        # 관찰이 접촉을 못 봤을 때만 assess가 쓴다. 추적이 없으면 흔들림이 자기 차 충격인지 가릴 단서가 없어 추정하지 않는다.
+        estimate = estimate_collision(candidates) if tracks else None
         report = assess(observation, keyframes, ctx.table, ctx.llm, info.duration, estimate)
         if not candidates or not tracks:  # 후보나 추적 없이 얻은 결과는 충돌을 봤더라도 낮음으로 둔다.
             report.confidence = "low"
