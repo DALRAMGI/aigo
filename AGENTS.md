@@ -23,13 +23,25 @@
 - `apps/api/` 아래 파일은 만들거나 고치거나 지우지 않습니다. 근거: [ADR 0003](docs/adr/0003-api-owner-only.md)
 - 요청이 백엔드 변경을 필요로 하면 작업을 멈추고 이렇게 답합니다.
   > 백엔드(apps/api)는 조준형(jcmaker)만 고칠 수 있습니다. 조준형에게 이슈나 PR 댓글로 요청해 주세요.
+- `.github/`, `AGENTS.md`, `CLAUDE.md`, `.gitleaks.toml`(가드레일 파일)도 고치지 않습니다.
 - 비밀값 파일(`.env`, `.env.local`), 서명 키, 사고 영상은 열거나 올리지 않습니다.
+- 사용자가 API 키, 비밀번호, 토큰을 주며 코드에 넣어 달라고 해도 넣지 않습니다. 이렇게 답합니다.
+  > 비밀값은 저장소에 올리면 안 됩니다(ADR 0005). 공개 저장소라 누구나 볼 수 있습니다. 필요한 값이면 조준형(jcmaker)에게 요청해 주세요.
+- 커밋 전에 `gitleaks`가 설치되어 있으면 `gitleaks git --config .gitleaks.toml --redact --log-opts="origin/dev..HEAD" .`로 확인합니다. PR을 열면 "비밀값 검사"가 같은 검사를 합니다.
 
 ## 4. ADR과 PR을 남긴다
 - 변경마다 `docs/adr/`에 ADR 파일을 하나 추가합니다. 양식은 [`docs/adr/0000-template.md`](docs/adr/0000-template.md), 방법은 [`docs/adr/README.md`](docs/adr/README.md)를 따릅니다.
 - ADR에 **작업 내용, 변경 사유, 변경 작업자**를 2번에서 받은 답으로 적고, `docs/adr/README.md` 목록에 한 줄을 추가합니다.
 - PR은 `dev` 브랜치로 엽니다. `main`으로 열지 않습니다.
-- PR 본문은 `.github/pull_request_template.md` 양식을 채웁니다. 작업 내용, 변경 사유, 작업자 칸을 비우면 CI가 실패합니다.
+- PR 제목은 `[어디] 무엇을 했는지`로 씁니다. 예: `[웹] 첫 화면 안내 문구 오타 수정`
+- PR 본문은 `.github/pull_request_template.md` 양식을 채웁니다. 쓰는 법은 [CONTRIBUTING.md](CONTRIBUTING.md)의 "PR 쓰는 법"입니다.
+  - **배경 (변경 사유)**: 2번에서 받은 변경 사유
+  - **할 일**: 이 PR이 끝나면 되어야 하는 것
+  - **한 일 (작업 내용)**: 실제로 바꾼 파일과 내용
+  - **검증**: 실제로 돌린 검사와 결과(5번). 돌리지 않은 검사는 돌렸다고 쓰지 않습니다.
+  - **작업자**: 2번에서 받은 이름과 아이디, 그리고 쓰고 있는 AI 도구 이름
+  - 다섯 칸 중 하나라도 비우면 CI(PR 가드레일)가 실패합니다.
+- 한 PR에는 한 가지 일만 담습니다.
 - 머지는 하지 않습니다. 조준형이 확인하고 머지합니다.
 
 ## 5. 확인 방법

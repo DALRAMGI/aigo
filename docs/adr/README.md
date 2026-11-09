@@ -22,3 +22,5 @@ ADR(Architecture Decision Record)은 "무엇을, 왜, 누가 바꿨는지" 남�
 | [0002](0002-branches-and-ci.md) | dev/main 브랜치, CI, 브랜치 보호 | 채택 | 조준형 | 2026-11-09 |
 | [0003](0003-api-owner-only.md) | 백엔드(apps/api)는 관리자만 고친다 | 채택 | 조준형 | 2026-11-09 |
 | [0004](0004-app-release-apk.md) | 앱은 GitHub Releases APK로 배포한다 | 채택 | 조준형 | 2026-11-09 |
+| [0005](0005-secret-scan.md) | 비밀값 검사와 자동 댓글 | 채택 | 조준형 | 2026-11-09 |
+| [0006](0006-pr-template.md) | PR은 배경, 할 일, 한 일, 검증, 작업자로 쓴다 | 채택 | 조준형 | 2026-11-09 |
