@@ -217,7 +217,7 @@ cd apps/web && E2E_VIDEO=<영상 경로> BASE_URL=<웹 주소> pnpm playwright t
 cd apps/api && DATABASE_URL=postgresql+psycopg:///dashpi_test uv run python -m app.evaluate --videos eval/videos --draft --budget 20
 ```
 
-- CI(`.github/workflows/ci.yml`)는 위 세 줄을 돌립니다. 느린 YOLO 테스트와 e2e는 CI에서 돌리지 않고, 비밀값을 쓰지 않습니다.
+- CI(`.github/workflows/ci.yml`)는 위 세 줄을 돌립니다. 느린 YOLO 테스트와 e2e는 CI에서 돌리지 않고, 비밀값을 쓰지 않습니다. 문서만 바뀌면(`docs/`, `.md`, `.txt`) 세 검사를 건너뜁니다. [ADR 0024](docs/adr/0024-skip-ci-for-docs.md)
 - 분석 품질 작업은 에뮬레이터 없이 평가 도구, pytest, 웹·API로 확인합니다. [ADR 0019](docs/adr/0019-quality-testing.md)
 
 API 응답을 바꾸면 웹·앱 타입을 다시 만듭니다. [ADR 0008](docs/adr/0008-api-contract.md)
