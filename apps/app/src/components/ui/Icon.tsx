@@ -4,7 +4,8 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 export type IconName =
   | 'home' | 'list' | 'video' | 'alert' | 'user' | 'back' | 'share' | 'chevron'
   | 'check' | 'camera' | 'phone' | 'lock' | 'upload' | 'trash' | 'image' | 'file' | 'logout'
-  | 'dashcam' | 'message' | 'plus' | 'close' | 'bell';
+  | 'dashcam' | 'message' | 'plus' | 'close' | 'bell'
+  | 'hazard' | 'trunk' | 'exit' | 'warnsign' | 'siren' | 'medical' | 'carmove' | 'idcard' | 'shield' | 'tow';
 
 // 24x24 선 아이콘 모양
 const shapes: Record<IconName, ReactNode> = {
@@ -29,6 +30,16 @@ const shapes: Record<IconName, ReactNode> = {
   plus: <Path d="M12 5v14M5 12h14" />,
   close: <Path d="M6 6l12 12M18 6L6 18" />,
   bell: <Path d="M18 9a6 6 0 00-12 0c0 6-2.5 7.5-2.5 7.5h17S18 15 18 9zM10 20a2 2 0 004 0" />,
+  hazard: <><Path d="M12 3L2.5 20h19z" /><Path d="M12 9.5L7.8 17h8.4z" /></>,
+  trunk: <><Path d="M4 13h16v5a1 1 0 01-1 1H5a1 1 0 01-1-1z" /><Path d="M4 13l3-8h10l3 8" /><Path d="M8 9l2-4" /><Circle cx="7.5" cy="16" r="1" /><Circle cx="16.5" cy="16" r="1" /></>,
+  exit: <><Circle cx="13" cy="4.5" r="1.8" /><Path d="M9 21l2.5-6 2.5 2v4M11.5 15l1-5.5-3 1.5L8 14M12.5 9.5l2.5 2.5 3-1" /><Path d="M3 8v13M3 12h3M3 17h3" /></>,
+  warnsign: <><Path d="M12 3L2.5 20h19z" /><Path d="M12 10v4.5M12 17.5h.01" /></>,
+  siren: <><Path d="M6 18v-6a6 6 0 0112 0v6" /><Path d="M4 21h16v-3H4zM12 3V1.5M4.5 5.5L3.5 4.5M19.5 5.5l1-1M12 12v3" /></>,
+  medical: <><Rect x="3" y="3" width="18" height="18" rx="4" /><Path d="M12 7.5v9M7.5 12h9" /></>,
+  carmove: <><Path d="M3 15l2-5h8l2 5v3H3z" /><Circle cx="6.5" cy="18" r="1.5" /><Circle cx="11.5" cy="18" r="1.5" /><Path d="M17 8h4M19 6l2 2-2 2" /></>,
+  idcard: <><Rect x="3" y="5" width="18" height="14" rx="2" /><Circle cx="9" cy="11" r="2" /><Path d="M6 16c.6-1.5 1.7-2 3-2s2.4.5 3 2M14.5 10h4M14.5 13.5h3" /></>,
+  shield: <><Path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z" /><Path d="M8.5 12l2.5 2.5 4.5-5" /></>,
+  tow: <><Path d="M2 17V9h8l3 4h3v4" /><Circle cx="6" cy="17.5" r="1.8" /><Circle cx="15" cy="17.5" r="1.8" /><Path d="M16 13l4-8M20 5v3.5M20 8.5l-1.5 1.5" /><Path d="M10 9V6" /></>,
   image: <><Rect x="3" y="4" width="18" height="16" rx="2" /><Circle cx="9" cy="10" r="1.5" /><Path d="M21 16l-5-5-9 9" /></>,
 };
 

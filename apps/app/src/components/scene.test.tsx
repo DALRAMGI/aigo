@@ -25,13 +25,22 @@ test('첫 두 버튼은 112, 119 신고 전화다', async () => {
   expect(buttons[1]).toHaveAccessibleName('119 신고 전화');
 });
 
-test('체크리스트 6개는 누르면 checked가 바뀐다', async () => {
+test('상황 안내: 답하기 전에는 단계가 없고, 차만 부딪힘을 고르면 6단계가 나오며 아이콘을 누르면 완료된다', async () => {
   await render(<SceneBody />);
+  expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
+  await fireEvent.press(screen.getByRole('radio', { name: '아니요, 차만' }));
   const boxes = screen.getAllByRole('checkbox');
   expect(boxes).toHaveLength(6);
-  expect(screen.queryAllByRole('checkbox', { checked: true })).toHaveLength(0);
   await fireEvent.press(boxes[0]);
   expect(screen.getAllByRole('checkbox', { checked: true })).toHaveLength(1);
+});
+
+test('상황 안내: 고속도로를 켜면 대피와 무료 견인 단계가 앞에 붙는다', async () => {
+  await render(<SceneBody />);
+  await fireEvent.press(screen.getByRole('radio', { name: '네, 있어요' }));
+  await fireEvent.press(screen.getByRole('switch', { name: '고속도로·자동차전용도로예요' }));
+  expect(screen.getByText('가드레일 밖으로 대피')).toBeTruthy();
+  expect(screen.getByText('무료 견인 부르기')).toBeTruthy();
 });
 
 test('알릴 사람: 저장된 연락처마다 문자와 전화 버튼이 있고, 추가 버튼으로 입력칸이 열린다', async () => {

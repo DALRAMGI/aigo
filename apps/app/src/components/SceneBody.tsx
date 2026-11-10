@@ -2,20 +2,13 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Linking, Pressable, Text, View } from 'react-native';
+import { Alert, Linking, View } from 'react-native';
 import { ContactsCard } from '@/components/ContactsCard';
+import { SceneGuide } from '@/components/SceneGuide';
 import { Button, Card, Icon, ListRow, Screen, TextField, TopBar } from '@/components/ui';
-import { color, space, type } from '@/theme';
+import { color, space } from '@/theme';
 import { addScenePhoto, getInsurerPhone, setInsurerPhone, type SceneLocation } from '@/lib/scene-store';
 
-const CHECKLIST = [
-  '비상등을 켜고 안전한 곳으로 대피하세요.',
-  '뒤따르는 차에 주의하세요. 2차 사고가 날 수 있습니다.',
-  '다친 사람이 있는지 확인하세요.',
-  '112, 119에 신고하세요.',
-  '현장 사진을 찍어 두세요.',
-  '보험사에 연락하세요.',
-];
 
 const LOCATION_TIMEOUT_MS = 5000;
 
@@ -47,7 +40,6 @@ function call(number: string) {
 
 export function SceneBody({ tabInset, onBack }: { tabInset?: boolean; onBack?: () => void }) {
   const router = useRouter();
-  const [checked, setChecked] = useState<boolean[]>(CHECKLIST.map(() => false));
   const [saved, setSaved] = useState<string | null>(null);
   const [phone, setPhone] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -101,22 +93,15 @@ export function SceneBody({ tabInset, onBack }: { tabInset?: boolean; onBack?: (
         <View style={{ flex: 1 }}><Button label="112 신고 전화" variant="emergency" icon="phone" onPress={() => call('112')} /></View>
         <View style={{ flex: 1 }}><Button label="119 신고 전화" variant="emergency" icon="phone" onPress={() => call('119')} /></View>
       </View>
-      <Card title="침착하게 순서대로">
-        {CHECKLIST.map((text, i) => (
-          <Pressable
-            key={text}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: checked[i] }}
-            onPress={() => setChecked(checked.map((c, j) => (j === i ? !c : c)))}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: 44 }}
-          >
-            <View style={{ width: 24, height: 24, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: checked[i] ? color.brand : color.white, borderWidth: checked[i] ? 0 : 1.5, borderColor: color.gray9 }}>
-              {checked[i] ? <Icon name="check" size={16} color={color.onBrand} /> : null}
-            </View>
-            <Text style={[type.body, { flex: 1, color: checked[i] ? color.gray9 : color.gray12, textDecorationLine: checked[i] ? 'line-through' : 'none' }]}>{text}</Text>
-          </Pressable>
-        ))}
-      </Card>
+      <SceneGuide
+        handlers={{
+          call112: () => call('112'),
+          call119: () => call('119'),
+          callEx: () => call('1588-2504'),
+          insurer: () => (saved ? call(saved) : Alert.alert('보험사 번호가 없습니다.', '아래 보험사 카드에 번호를 저장해 주세요.')),
+          photo: shoot,
+        }}
+      />
       <Button label="현장 사진 촬영" variant="dark" icon="camera" disabled={shooting} onPress={shoot} />
       <ListRow
         leading={<Icon name="image" size={20} color={color.gray11} />}
