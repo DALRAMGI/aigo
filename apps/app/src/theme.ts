@@ -10,6 +10,7 @@ export const color = {
   ink: '#1A2B4C',
   ink2: '#26395E',
   ink3: '#344A73',
+  sceneCard: '#5580C8', // 사고 현장 질문 카드: 파랑과 하늘색 사이의 차분한 색
   white: '#FFFFFF',
   gray2: '#F9F9F9',
   gray3: '#F0F0F0',

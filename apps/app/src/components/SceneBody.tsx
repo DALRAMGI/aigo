@@ -2,11 +2,11 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Linking, View } from 'react-native';
+import { Alert, Linking, Modal, Pressable, Text, View } from 'react-native';
 import { ContactsCard } from '@/components/ContactsCard';
 import { SceneGuide } from '@/components/SceneGuide';
 import { Button, Card, Icon, ListRow, Screen, TextField, TopBar } from '@/components/ui';
-import { color, space } from '@/theme';
+import { color, radius, space, type } from '@/theme';
 import { addScenePhoto, getInsurerPhone, setInsurerPhone, type SceneLocation } from '@/lib/scene-store';
 
 
@@ -40,6 +40,7 @@ function call(number: string) {
 
 export function SceneBody({ tabInset, onBack }: { tabInset?: boolean; onBack?: () => void }) {
   const router = useRouter();
+  const [reportOpen, setReportOpen] = useState(false);
   const [saved, setSaved] = useState<string | null>(null);
   const [phone, setPhone] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -87,12 +88,19 @@ export function SceneBody({ tabInset, onBack }: { tabInset?: boolean; onBack?: (
   }
 
   return (
+    <>
     <Screen scroll tabInset={tabInset}>
-      <TopBar title="사고 현장 모드" onBack={onBack} />
-      <View style={{ flexDirection: 'row', gap: space[3] }}>
-        <View style={{ flex: 1 }}><Button label="112 신고 전화" variant="emergency" icon="phone" onPress={() => call('112')} /></View>
-        <View style={{ flex: 1 }}><Button label="119 신고 전화" variant="emergency" icon="phone" onPress={() => call('119')} /></View>
-      </View>
+      <TopBar
+        title="사고 현장 모드"
+        onBack={onBack}
+        right={
+          <Pressable accessibilityRole="button" accessibilityLabel="신고" onPress={() => setReportOpen(true)}
+            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, height: 38, paddingHorizontal: space[4], borderRadius: radius.pill, backgroundColor: pressed ? color.danger600 : color.danger })}>
+            <Icon name="alert" size={18} color={color.white} />
+            <Text style={[type.label, { fontSize: 15, color: color.white }]}>신고</Text>
+          </Pressable>
+        }
+      />
       <SceneGuide
         handlers={{
           call112: () => call('112'),
@@ -116,5 +124,17 @@ export function SceneBody({ tabInset, onBack }: { tabInset?: boolean; onBack?: (
       </Card>
       <ContactsCard />
     </Screen>
+      {/* 오른쪽 위 신고 버튼을 누르면 112·119 중 고른다. */}
+      <Modal visible={reportOpen} transparent animationType="fade" onRequestClose={() => setReportOpen(false)}>
+        <Pressable accessibilityLabel="닫기" onPress={() => setReportOpen(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' }}>
+          <Pressable onPress={() => {}} style={{ backgroundColor: color.white, borderTopLeftRadius: radius.card, borderTopRightRadius: radius.card, padding: space[5], paddingBottom: space[8], gap: space[3] }}>
+            <Text accessibilityRole="header" style={[type.title, { fontSize: 20, color: color.gray12 }]}>어디에 신고할까요?</Text>
+            <Button label="112 경찰" variant="emergency" icon="siren" onPress={() => { setReportOpen(false); call('112'); }} />
+            <Button label="119 구급·소방" variant="emergency" icon="medical" onPress={() => { setReportOpen(false); call('119'); }} />
+            <Button label="닫기" variant="secondary" onPress={() => setReportOpen(false)} />
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
   );
 }
